@@ -1,0 +1,340 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    color: white;
+}
+
+body {
+    background: linear-gradient(#1354A5 0%, #041832 33.33%, #041832 66.67%, #01080E 100%);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+}
+
+body::before {
+    background-image: url("img/code.png");
+    background-repeat: no-repeat;
+    background-position: right;
+    content: "";
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0.4;
+}
+
+.container {
+    width: 80%;
+    min-height: 50vh;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 24px;
+    border: 1px solid #1875E8;
+    box-shadow: 4px 4px 20px 0px rgba(1, 8, 14, 0.15);
+    background-image: url("img/Ruido.png");
+    background-size: 100% 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.container__conteudo {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.container__informacoes {
+    flex: 1;
+    padding: 2rem;
+}
+
+.container__texto {
+    margin: 12px 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.container__texto-azul {
+    color: #1875E8;
+    display: block;
+}
+
+.container__campo {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 12px;
+    gap: 1rem; /* Reduzindo o espaço entre o label e o campo */
+}
+
+.container__input {
+    width: 130px;
+    height: 50px; /* Reduzindo a altura do input para dar mais harmonia */
+    border-radius: 16px;
+    background-color: #FFF;
+    border: none;
+    color: #1875E8;
+    padding: 0.8rem;
+    font-size: 20px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+}
+
+.container__botoes {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+
+.container__botao {
+    border-radius: 16px;
+    background: #1875E8;
+    padding: 16px 24px;
+    font-size: 24px;
+    width: 100%;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+}
+
+.container__botao:hover {
+    background: #1f76e8;
+}
+
+.container__botao:disabled {
+    background-color: #6f6f70;
+    cursor: not-allowed;
+}
+
+.container__botao.reiniciar {
+    background: #6f6f70;
+    margin-top: 12px;
+}
+
+h1 {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 72px;
+    font-weight: 700;
+    line-height: 100%;
+    padding: 2rem;
+}
+
+.texto__paragrafo {
+    color: #FFF;
+    font-family: 'Inter';
+    font-size: 40px;
+    font-weight: 400;
+    text-align: center;
+}
+
+.container__imagem-pessoa {
+    max-width: 250px;
+    height: auto;
+    margin-left: 2rem; /* Ajustando a margem para a foto ficar à direita */
+}
+
+button:disabled {
+    background-color: gray;
+}
+
+@media screen and (max-width: 1250px) {
+    .container__imagem-pessoa {
+        max-width: 150px;
+    }
+
+    h1 {
+        font-size: 50px;
+    }
+
+    .container {
+        flex-direction: column;
+    }
+
+    .container__imagem-pessoa {
+        margin-left: 0;
+        margin-top: 2rem;
+    }
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+.modal-content {
+    background-color: hsla(0, 76%, 37%, 0.7);
+    color: #000;
+    padding: 2rem;
+    border-radius: 8px;
+    text-align: center;
+    width: 300px;
+}
+
+.modal-text {
+    font-size: 18px;
+    margin-bottom: 1rem;
+}
+
+.modal-btn {
+    padding: 10px 20px;
+    background-color: #1875E8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.modal-btn:hover {
+    background-color: #1f76e8;
+}
+
+.container__texto-imagem {
+    display: flex;
+    flex-direction: column; /* Para telas pequenas, o layout será em coluna */
+    align-items: center; /* Centraliza os itens no eixo horizontal */
+    justify-content: center; /* Centraliza os itens no eixo vertical */
+    text-align: center; /* Centraliza o texto */
+    width: 100%;
+    padding: 1rem; /* Adiciona um pouco de padding para evitar que o conteúdo fique muito apertado */
+}
+
+.container__imagem-pessoa {
+    max-width: 200px; /* Reduz a largura da imagem para caber melhor em telas pequenas */
+    height: auto;
+    margin-top: 1rem; /* Adiciona um espaçamento entre o texto e a imagem */
+}
+
+/* Responsividade para telas pequenas */
+@media screen and (max-width: 360px) {
+    h1 {
+        font-size: 24px; /* Reduz o tamanho da fonte do título */
+        margin: 0; /* Remove margens extras */
+    }
+
+    .container__texto-azul {
+        font-size: 20px; /* Ajusta o tamanho do texto azul */
+    }
+
+    .container__input {
+        width: 80%; /* Ajusta a largura do campo de input para telas pequenas */
+        font-size: 18px; /* Ajusta o tamanho da fonte do input */
+    }
+
+    .container__botao {
+        width: 100%; /* Garante que o botão ocupe toda a largura da tela */
+        padding: 10px; /* Reduz o padding para que o botão caiba melhor */
+        font-size: 18px; /* Ajusta o tamanho da fonte do botão */
+    }
+
+    .container__imagem-pessoa {
+        max-width: 150px; /* Ajusta ainda mais a largura da imagem para telas muito pequenas */
+    }
+}
+
+.container__topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 1rem;
+}
+
+.container__imagem-pessoa {
+    max-width: 120px; /* Define um tamanho menor para a imagem */
+    height: auto;
+}
+
+h1 {
+    font-size: 36px;
+    text-align: left;
+    flex: 1; /* Ocupa o espaço disponível */
+}
+
+
+
+@media screen and (max-width: 768px) {
+  
+    .container__topo {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .container__imagem-pessoa {
+        display: none; /* Esconde a imagem em telas pequenas */
+    }
+    .h1 {
+        text-align: center;
+    }
+
+}
+
+
+.container__texto {
+    margin: 12px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.texto__paragrafo {
+    color: #FFF;
+    font-family: 'Inter';
+    font-size: 30px; /* Ajuste o tamanho conforme necessário */
+    font-weight: 400;
+    text-align: center;
+    margin-bottom: 10px; /* Espaço entre o título e os resultados */
+    white-space: pre-wrap; /* Permite quebras de linha dentro do parágrafo */
+    word-wrap: break-word; /* Impede que palavras largas quebrem o layout */
+}
+
+#resultado {
+    display: grid; /* Usamos grid para organizar as colunas */
+    grid-template-columns: 1fr 1fr; /* Define duas colunas de igual largura */
+    gap: 20px; /* Espaço entre as colunas */
+    max-width: 90%;
+    overflow-wrap: break-word;
+    text-align: center;
+    font-size: 24px; /* Ajuste o tamanho da fonte conforme necessário */
+    font-weight: 400;
+    line-height: 1.5; /* Maior espaçamento entre as linhas */
+    color: #fff;
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid #1875E8;
+    background-color: rgba(0, 0, 0, 0.5); /* Fundo semitransparente */
+    white-space: pre-wrap; /* Mantém as quebras de linha */
+}
+
+/* Responsividade */
+@media screen and (max-width: 768px) {
+    #resultado {
+        grid-template-columns: 1fr; /* Para telas pequenas, colocamos os resultados em uma coluna */
+        font-size: 18px; /* Ajusta o tamanho da fonte para se adequar à tela menor */
+        padding: 0.8rem;
+    }
+
+    .texto__paragrafo {
+        font-size: 20px; /* Ajusta o tamanho do texto em telas menores */
+    }
+}
