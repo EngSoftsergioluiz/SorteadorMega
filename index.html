@@ -1,14 +1,420 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Studio Kellen Cristina</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="app.js" defer></script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fontes -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Playfair+Display&display=swap" rel="stylesheet" />
+
+  <style>
+    /* Cores base da paleta */
+    :root {
+      --azul-escuro: #002644;
+      --azul-mais-escuro-1: #00192f;
+      --azul-mais-escuro-2: #001c3a;
+      --branco: #ffffff;
+      --dourado-1: #e4c36b;
+      --dourado-2: #d9b463;
+      --amarelo-claro: #faf8c5;
+    }
+
+    /* Fontes */
+    body {
+      font-family: 'Playfair Display', serif;
+      background: url('img/Kellen-Cristina-APENAS-FUNDO.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: var(--amarelo-claro);
+      min-height: 100vh;
+      scroll-behavior: smooth;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: 'Cinzel', serif;
+      color: var(--dourado-1);
+      letter-spacing: 2px;
+      text-shadow: 0 0 5px var(--dourado-2);
+    }
+
+    a {
+      color: var(--dourado-1);
+      transition: color 0.3s ease;
+    }
+
+    a:hover,
+    a:focus {
+      color: var(--branco);
+      outline: none;
+      text-decoration: underline;
+    }
+
+    header {
+      background-color: var(--azul-escuro);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 1000;
+    }
+
+    nav a {
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin: 0 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+    }
+
+    nav a:hover {
+      color: var(--dourado-2);
+    }
+
+    /* Botões */
+    .btn {
+      font-weight: 700;
+      border-radius: 9999px;
+      padding: 0.75rem 1.8rem;
+      box-shadow: 0 5px 15px rgba(201, 180, 100, 0.5);
+      transition: box-shadow 0.3s ease, background-color 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-whatsapp {
+      background-color: #25D366;
+      color: var(--branco);
+      box-shadow: 0 5px 15px rgba(37, 211, 102, 0.6);
+    }
+
+    .btn-whatsapp:hover {
+      box-shadow: 0 8px 25px rgba(37, 211, 102, 0.9);
+    }
+
+    .btn-ligar {
+      background-color: var(--dourado-1);
+      color: var(--azul-escuro);
+      box-shadow: 0 5px 15px rgba(201, 180, 100, 0.7);
+    }
+
+    .btn-ligar:hover {
+      background-color: var(--dourado-2);
+      box-shadow: 0 8px 25px rgba(201, 180, 100, 0.9);
+    }
+
+    .btn-social {
+      background-color: var(--azul-mais-escuro-2);
+      color: var(--dourado-1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-social:hover {
+      background-color: var(--dourado-2);
+      color: var(--azul-escuro);
+      box-shadow: 0 6px 20px rgba(201, 180, 100, 0.8);
+    }
+
+    /* Cartões */
+    .card {
+      background: linear-gradient(135deg, var(--azul-escuro), var(--azul-mais-escuro-1));
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      transition: transform 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-12px);
+      box-shadow: 0 20px 40px rgba(228, 195, 107, 0.7);
+    }
+
+    /* Imagens da galeria */
+    .gallery-item {
+      border-radius: 1.25rem;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+      transition: transform 0.5s ease, box-shadow 0.5s ease;
+      background: var(--azul-escuro);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gallery-item img {
+      border-radius: 1.25rem;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: brightness(0.95);
+      transition: filter 0.3s ease;
+    }
+
+    .gallery-item:hover img {
+      filter: brightness(1);
+      transform: scale(1.05);
+    }
+
+    /* Footer */
+    footer {
+      background-color: var(--azul-escuro);
+      padding: 1rem 0;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--amarelo-claro);
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 5px var(--dourado-2);
+      user-select: none;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+    }
+    
+    /* Conteúdo principal */
+    .main-content {
+      flex: 1;
+      margin-top: 100px; /* Espaço para o header fixo */
+      margin-bottom: 60px; /* Espaço para o footer fixo */
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    /* Seções */
+    .content-section {
+      display: none;
+      width: 80%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      padding-top: 30px; /* Espaço extra para não ficar colado no header */
+    }
+
+        #initial-content {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(100vh - 140px);
+    }
+    
+    /* Logo central */
+    .center-logo {
+      max-width: 90%;
+      max-height: 60vh;
+      width: auto;
+      height: auto;
+    }
+    
+    /* Ativo */
+    .active {
+      display: block;
+    }
+    
+    /* Ajuste para os títulos não ficarem atrás do header */
+    :target::before {
+      content: "";
+      display: block;
+      height: 100px; /* Altura do header */
+      margin: -100px 0 0; /* Negativo da altura do header */
+    }
+
+
+    /* Esconde a logo em todas as seções exceto na inicial */
+    .content-section:not(#initial-content) {
+      padding-top: 50px; /* Espaço extra abaixo do menu */
+    }
+
+    /* Ajustes para telas menores */
+    @media (max-width: 768px) {
+      #initial-content {
+        height: calc(100vh - 120px);
+      }
+      .center-logo {
+        max-width: 95%;
+        max-height: 70vh;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #initial-content {
+        height: calc(100vh - 100px);
+      }
+      .center-logo {
+        max-width: 100%;
+        max-height: 60vh;
+      }
+    }
+  </style>
 </head>
+
 <body>
-  <h1>🚧 Em construção... 🚿💇‍♀️</h1>
-  <p>Site em construção, aguarde as novidades!</p>
+  <!-- Cabeçalho Fixo -->
+  <header class="flex items-center justify-between">
+    <img src="img/Simbolo.png" alt="Logo Studio Kellen Cristina" class="h-40 rounded-lg shadow-lg" />
+    <nav aria-label="Menu Principal">
+      <a href="#sobre" class="nav-link" tabindex="0">Sobre</a>
+      <a href="#servicos" class="nav-link" tabindex="0">Serviços</a>
+      <a href="#galeria" class="nav-link" tabindex="0">Galeria</a>
+      <a href="#contato" class="nav-link" tabindex="0">Contato</a>
+    </nav>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-content">
+    <!-- Conteúdo Inicial (APENAS AQUI TEM LOGO) -->
+    <div id="initial-content" class="content-section">
+      <img src="img/Kellen-Cristina-LOGO.png" alt="Logo Studio Kellen Cristina" class="center-logo" />
+    </div>
+
+    <!-- Sobre -->
+    <section id="sobre" class="content-section" tabindex="0" aria-labelledby="sobre-title">
+      <h2 id="sobre-title" class="text-5xl mb-8 text-center">Sobre o Studio</h2>
+      <p class="text-xl leading-relaxed max-w-3xl mx-auto text-amarelo-claro text-center">
+        O Studio Kellen Cristina é especializado em alisamentos capilares, oferecendo escovas progressivas com formol e orgânicas. Com anos de experiência, proporcionamos resultados impecáveis e um atendimento acolhedor.
+      </p>
+    </section>
+
+    <!-- Serviços -->
+    <section id="servicos" class="content-section" tabindex="0" aria-labelledby="servicos-title">
+      <h2 id="servicos-title" class="text-5xl text-center mb-16">Serviços</h2>
+      <div class="grid gap-10 sm:grid-cols-2">
+        <article class="card" role="article" tabindex="0" aria-label="Escova Progressiva com Formol">
+          <h3 class="text-3xl mb-5">Escova Progressiva com Formol</h3>
+          <p class="text-lg leading-relaxed">Alisamento duradouro com brilho intenso e controle de volume, usando produtos profissionais e equipe especializada.</p>
+        </article>
+        <article class="card" role="article" tabindex="0" aria-label="Escova Progressiva Orgânica">
+          <h3 class="text-3xl mb-5">Escova Progressiva Orgânica</h3>
+          <p class="text-lg leading-relaxed">Alisamento sem formol, indicado para todos os tipos de cabelo, com hidratação profunda e cuidado natural.</p>
+        </article>
+        <article class="card" role="article" tabindex="0" aria-label="Tratamento Capilar">
+          <h3 class="text-3xl mb-5">Tratamento Capilar</h3>
+          <p class="text-lg leading-relaxed">Hidratação, nutrição e reconstrução para cabelos mais fortes, saudáveis e macios.</p>
+        </article>
+        <article class="card" role="article" tabindex="0" aria-label="Consultoria Personalizada">
+          <h3 class="text-3xl mb-5">Consultoria Personalizada</h3>
+          <p class="text-lg leading-relaxed">Análise detalhada do seu cabelo para indicar o melhor tratamento e cuidados específicos.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Galeria -->
+    <section id="galeria" class="content-section" tabindex="0" aria-labelledby="galeria-title">
+      <h2 id="galeria-title" class="text-5xl text-center mb-16">Galeria</h2>
+      <div class="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="gallery-item" tabindex="0" aria-label="Antes e depois escova progressiva com formol">
+          <img src="img/Monique1.jpeg" alt="Antes e depois escova progressiva com formol" loading="lazy" />
+        </div>
+        <div class="gallery-item" tabindex="0" aria-label="Escova progressiva orgânica">
+          <img src="img/cabelo.jpg" alt="Escova progressiva orgânica" loading="lazy" />
+        </div>
+        <div class="gallery-item" tabindex="0" aria-label="Tratamento capilar">
+          <img src="img/May1.JPG" alt="Tratamento capilar" loading="lazy" />
+        </div>
+        <div class="gallery-item" tabindex="0" aria-label="Consultoria capilar personalizada">
+          <img src="img/Cabelo2.jpeg" alt="Consultoria capilar personalizada" loading="lazy" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Contato -->
+    <section id="contato" class="content-section" tabindex="0" aria-labelledby="contato-title">
+      <h2 id="contato-title" class="text-5xl mb-14 text-center" style="color: var(--dourado-1); text-shadow: 0 0 10px var(--dourado-2);">Contato</h2>
+      <p class="mb-14 text-lg max-w-lg mx-auto leading-relaxed text-center" style="color: var(--amarelo-claro);">
+        Entre em contato e agende seu horário. Estamos disponíveis nas principais redes sociais e telefone.
+      </p>
+
+      <div class="flex flex-col gap-6 max-w-xs mx-auto">
+        <!-- WhatsApp -->
+        <a href="https://wa.me/5541997869763" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp" aria-label="WhatsApp - (41) 99786-9763">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            stroke-width="2" aria-hidden="true" focusable="false">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 10a9 9 0 0115.53-6.57L21 4a9 9 0 11-18 6zM14 14l-2 2m0 0l-2-2m2 2V10" />
+          </svg>
+          WhatsApp: (41) 99786-9763
+        </a>
+
+        <!-- Telefone -->
+        <a href="tel:+5541997869763" class="btn btn-ligar" aria-label="Telefone para ligação - (41) 99786-9763">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            stroke-width="2" aria-hidden="true" focusable="false">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.45 4.35a1 1 0 01-.217 1.023l-2.2 2.2a11.042 11.042 0 005.516 5.516l2.2-2.2a1 1 0 011.023-.217l4.35 1.45a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C7.82 21 3 16.18 3 10V5z" />
+          </svg>
+          Ligar: (41) 99786-9763
+        </a>
+
+        <!-- Instagram -->
+        <a href="https://instagram.com/studiokellens" target="_blank" rel="noopener noreferrer" class="btn btn-social" aria-label="Instagram do Studio Kellen Cristina">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 inline" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2zM12 7a5 5 0 100 10 5 5 0 000-10zm6 1.5a1.25 1.25 0 11-2.5 0 1.25 1.25 0 012.5 0z" />
+          </svg>
+          Instagram
+        </a>
+
+        <!-- Facebook -->
+        <a href="https://facebook.com/studiokellens" target="_blank" rel="noopener noreferrer" class="btn btn-social" aria-label="Facebook do Studio Kellen Cristina">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 inline" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.877v-6.987h-2.54v-2.89h2.54V9.845c0-2.507 1.492-3.89 3.778-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562v1.875h2.773l-.443 2.89h-2.33v6.987C18.343 21.128 22 16.991 22 12z" />
+          </svg>
+          Facebook
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <!-- Rodapé Fixo -->
+  <footer>
+    <p>© 2025 Desenvolvido por InfraCode Solutions.</p>
+  </footer>
+
+  <script>
+   document.addEventListener('DOMContentLoaded', function() {
+      const navLinks = document.querySelectorAll('.nav-link');
+      const contentSections = document.querySelectorAll('.content-section');
+      const initialContent = document.getElementById('initial-content');
+      const logoHeader = document.querySelector('header img');
+
+      navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          const targetId = this.getAttribute('href').substring(1);
+          
+          // Esconde todas as seções
+           contentSections.forEach(section => {
+           section.classList.remove('active');
+           initialContent.remove('active');
+          });
+          
+          // Mostra apenas a seção clicada
+          document.getElementById(targetId).classList.add('active');
+          
+          // Scroll suave para a seção
+          document.getElementById(targetId).scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start' 
+          });
+        });
+      });
+      
+      // Volta para a página inicial ao clicar no símbolo
+          // Recarrega a página ao clicar no símbolo
+    logoHeader.addEventListener('click', function() {
+      window.location.reload();
+    });
+    });
+  </script>
 </body>
 </html>
