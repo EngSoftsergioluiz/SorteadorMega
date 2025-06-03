@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
   <title>Studio Kellen Cristina</title>
 
   <!-- Tailwind CSS CDN -->
@@ -49,16 +49,17 @@
 
     a {
       color: var(--dourado-1);
-      transition: color 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     a:hover,
     a:focus {
       color: var(--branco);
       outline: none;
-      text-decoration: underline;
+      text-decoration: none;
     }
 
+    /* Header e Navegação */
     header {
       background-color: var(--azul-escuro);
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
@@ -66,18 +67,66 @@
       top: 0;
       width: 100%;
       z-index: 1000;
+      padding: 10px 0;
+    }
+
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 95%;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .logo-header {
+      height: 60px;
+      width: auto;
+      transition: transform 0.3s ease;
+    }
+
+    .logo-header:hover {
+      transform: scale(1.05);
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
     }
 
     nav a {
       font-weight: 700;
-      font-size: 1.1rem;
-      margin: 0 1.2rem;
+      font-size: 1rem;
       text-transform: uppercase;
-      letter-spacing: 1.4px;
+      letter-spacing: 1.2px;
+      padding: 8px 15px;
+      white-space: nowrap;
+      position: relative;
+      border-radius: 4px;
+    }
+
+    nav a::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background: var(--dourado-1);
+      transition: all 0.3s ease;
+      transform: translateX(-50%);
+    }
+
+    nav a:hover::after,
+    nav a:focus::after {
+      width: 80%;
     }
 
     nav a:hover {
       color: var(--dourado-2);
+      background-color: rgba(228, 195, 107, 0.1);
     }
 
     /* Botões */
@@ -86,7 +135,7 @@
       border-radius: 9999px;
       padding: 0.75rem 1.8rem;
       box-shadow: 0 5px 15px rgba(201, 180, 100, 0.5);
-      transition: box-shadow 0.3s ease, background-color 0.3s ease;
+      transition: all 0.3s ease;
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
@@ -100,6 +149,7 @@
 
     .btn-whatsapp:hover {
       box-shadow: 0 8px 25px rgba(37, 211, 102, 0.9);
+      transform: translateY(-2px);
     }
 
     .btn-ligar {
@@ -111,6 +161,7 @@
     .btn-ligar:hover {
       background-color: var(--dourado-2);
       box-shadow: 0 8px 25px rgba(201, 180, 100, 0.9);
+      transform: translateY(-2px);
     }
 
     .btn-social {
@@ -123,6 +174,7 @@
       background-color: var(--dourado-2);
       color: var(--azul-escuro);
       box-shadow: 0 6px 20px rgba(201, 180, 100, 0.8);
+      transform: translateY(-2px);
     }
 
     /* Cartões */
@@ -131,12 +183,14 @@
       border-radius: 1rem;
       padding: 2rem;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
-      transition: transform 0.35s ease, box-shadow 0.35s ease;
+      transition: all 0.35s ease;
+      border: 1px solid rgba(228, 195, 107, 0.2);
     }
 
     .card:hover {
-      transform: translateY(-12px);
-      box-shadow: 0 20px 40px rgba(228, 195, 107, 0.7);
+      transform: translateY(-8px);
+      box-shadow: 0 15px 35px rgba(228, 195, 107, 0.5);
+      border-color: rgba(228, 195, 107, 0.4);
     }
 
     /* Imagens da galeria */
@@ -144,11 +198,12 @@
       border-radius: 1.25rem;
       overflow: hidden;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
-      transition: transform 0.5s ease, box-shadow 0.5s ease;
+      transition: all 0.5s ease;
       background: var(--azul-escuro);
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid rgba(228, 195, 107, 0.2);
     }
 
     .gallery-item img {
@@ -157,12 +212,18 @@
       height: 100%;
       object-fit: cover;
       filter: brightness(0.95);
-      transition: filter 0.3s ease;
+      transition: all 0.3s ease;
+    }
+
+    .gallery-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 35px rgba(228, 195, 107, 0.5);
+      border-color: rgba(228, 195, 107, 0.4);
     }
 
     .gallery-item:hover img {
       filter: brightness(1);
-      transform: scale(1.05);
+      transform: scale(1.03);
     }
 
     /* Footer */
@@ -178,12 +239,13 @@
       position: fixed;
       bottom: 0;
       width: 100%;
+      border-top: 1px solid rgba(228, 195, 107, 0.2);
     }
     
     /* Conteúdo principal */
     .main-content {
       flex: 1;
-      margin-top: 100px; /* Espaço para o header fixo */
+      margin-top: 90px; /* Espaço para o header fixo */
       margin-bottom: 60px; /* Espaço para o footer fixo */
       padding: 20px;
       overflow-y: auto;
@@ -192,26 +254,39 @@
     /* Seções */
     .content-section {
       display: none;
-      width: 80%;
+      width: 95%;
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
-      padding-top: 30px; /* Espaço extra para não ficar colado no header */
+      scroll-margin-top: 90px; /* Adicionado para espaçamento no scroll */
+      animation: fadeIn 0.5s ease-out;
     }
 
-        #initial-content {
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    #initial-content {
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: calc(100vh - 140px);
+      min-height: calc(100vh - 150px); /* Ajustado para considerar header e footer */
     }
     
-    /* Logo central */
+    /* Logo central - APENAS NA PÁGINA INICIAL */
     .center-logo {
       max-width: 90%;
-      max-height: 60vh;
+      max-height: 70vh;
       width: auto;
       height: auto;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+      100% { transform: translateY(0px); }
     }
     
     /* Ativo */
@@ -219,38 +294,128 @@
       display: block;
     }
     
-    /* Ajuste para os títulos não ficarem atrás do header */
-    :target::before {
-      content: "";
-      display: block;
-      height: 100px; /* Altura do header */
-      margin: -100px 0 0; /* Negativo da altura do header */
+    /* Menu mobile */
+    .menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--dourado-1);
+      font-size: 1.8rem;
+      cursor: pointer;
+      padding: 5px 10px;
+      transition: transform 0.3s ease;
+      z-index: 1001;
     }
 
+    .menu-toggle:hover {
+      transform: scale(1.1);
+    }
 
-    /* Esconde a logo em todas as seções exceto na inicial */
-    .content-section:not(#initial-content) {
-      padding-top: 50px; /* Espaço extra abaixo do menu */
+    .menu-toggle[aria-expanded="true"] {
+      color: var(--dourado-2);
+    }
+
+    /* Overlay para mobile */
+    .mobile-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: 999;
+    }
+
+    .mobile-overlay.show {
+      display: block;
     }
 
     /* Ajustes para telas menores */
-    @media (max-width: 768px) {
-      #initial-content {
-        height: calc(100vh - 120px);
+    @media (max-width: 1024px) {
+      nav {
+        gap: 10px;
       }
-      .center-logo {
-        max-width: 95%;
-        max-height: 70vh;
+      
+      nav a {
+        padding: 8px 12px;
+        font-size: 0.95rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header-container {
+        padding: 5px 0;
+      }
+      
+      .logo-header {
+        height: 50px;
+      }
+      
+      .menu-toggle {
+        display: block;
+      }
+      
+      nav {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 280px;
+        height: 100vh;
+        background-color: var(--azul-mais-escuro-1);
+        flex-direction: column;
+        justify-content: flex-start;
+        padding-top: 80px;
+        gap: 0;
+        transition: right 0.3s ease;
+        z-index: 1000;
+      }
+      
+      nav.show {
+        right: 0;
+      }
+      
+      nav a {
+        width: 100%;
+        padding: 15px 20px;
+        border-radius: 0;
+        border-bottom: 1px solid rgba(228, 195, 107, 0.1);
+        text-align: left;
+      }
+      
+      nav a::after {
+        display: none;
+      }
+      
+      nav a:hover {
+        background-color: var(--azul-mais-escuro-2);
+      }
+      
+      .main-content {
+        margin-top: 80px;
+      }
+      
+      .content-section {
+        scroll-margin-top: 80px;
+      }
+      
+      #initial-content {
+        min-height: calc(100vh - 140px);
       }
     }
 
     @media (max-width: 480px) {
-      #initial-content {
-        height: calc(100vh - 100px);
+      .logo-header {
+        height: 45px;
       }
+      
       .center-logo {
-        max-width: 100%;
+        max-width: 95%;
         max-height: 60vh;
+      }
+      
+      #initial-content {
+        min-height: calc(100vh - 130px);
       }
     }
   </style>
@@ -258,81 +423,89 @@
 
 <body>
   <!-- Cabeçalho Fixo -->
-  <header class="flex items-center justify-between">
-    <img src="img/Simbolo.png" alt="Logo Studio Kellen Cristina" class="h-40 rounded-lg shadow-lg" />
-    <nav aria-label="Menu Principal">
-      <a href="#sobre" class="nav-link" tabindex="0">Sobre</a>
-      <a href="#servicos" class="nav-link" tabindex="0">Serviços</a>
-      <a href="#galeria" class="nav-link" tabindex="0">Galeria</a>
-      <a href="#contato" class="nav-link" tabindex="0">Contato</a>
-    </nav>
+  <header>
+    <div class="header-container">
+      <img src="img/Simbolo.png" alt="Studio Kellen Cristina" class="logo-header" id="logo-header" />
+      <button class="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-menu">☰</button>
+      <nav id="main-menu" aria-label="Menu principal">
+        <a href="#sobre" class="nav-link" tabindex="0">Sobre</a>
+        <a href="#servicos" class="nav-link" tabindex="0">Serviços</a>
+        <a href="#galeria" class="nav-link" tabindex="0">Galeria</a>
+        <a href="#contato" class="nav-link" tabindex="0">Contato</a>
+      </nav>
+      <div class="mobile-overlay"></div>
+    </div>
   </header>
 
   <!-- Conteúdo Principal -->
   <main class="main-content">
     <!-- Conteúdo Inicial (APENAS AQUI TEM LOGO) -->
-    <div id="initial-content" class="content-section">
-      <img src="img/Kellen-Cristina-LOGO.png" alt="Logo Studio Kellen Cristina" class="center-logo" />
+    <div id="initial-content" class="content-section active">
+      <img src="img/Kellen-Cristina-LOGO.png" alt="Studio Kellen Cristina" class="center-logo" />
     </div>
 
     <!-- Sobre -->
     <section id="sobre" class="content-section" tabindex="0" aria-labelledby="sobre-title">
-      <h2 id="sobre-title" class="text-5xl mb-8 text-center">Sobre o Studio</h2>
-      <p class="text-xl leading-relaxed max-w-3xl mx-auto text-amarelo-claro text-center">
-        O Studio Kellen Cristina é especializado em alisamentos capilares, oferecendo escovas progressivas com formol e orgânicas. Com anos de experiência, proporcionamos resultados impecáveis e um atendimento acolhedor.
-      </p>
+      <h2 id="sobre-title" class="text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-8 text-center">Sobre o Studio</h2>
+      <div class="max-w-3xl mx-auto bg-azul-escuro bg-opacity-80 rounded-lg p-6 md:p-8">
+        <p class="text-lg md:text-xl leading-relaxed text-amarelo-claro">
+          O Studio Kellen Cristina é especializado em alisamentos capilares, oferecendo escovas progressivas com formol e orgânicas. Com anos de experiência, proporcionamos resultados impecáveis e um atendimento acolhedor.
+        </p>
+      </div>
     </section>
 
     <!-- Serviços -->
     <section id="servicos" class="content-section" tabindex="0" aria-labelledby="servicos-title">
-      <h2 id="servicos-title" class="text-5xl text-center mb-16">Serviços</h2>
-      <div class="grid gap-10 sm:grid-cols-2">
+      <h2 id="servicos-title" class="text-3xl md:text-4xl lg:text-5xl text-center mb-8 md:mb-12">Nossos Serviços</h2>
+      <div class="grid gap-6 md:gap-8 lg:gap-10 sm:grid-cols-2">
         <article class="card" role="article" tabindex="0" aria-label="Escova Progressiva com Formol">
-          <h3 class="text-3xl mb-5">Escova Progressiva com Formol</h3>
-          <p class="text-lg leading-relaxed">Alisamento duradouro com brilho intenso e controle de volume, usando produtos profissionais e equipe especializada.</p>
+          <h3 class="text-2xl md:text-3xl mb-4 md:mb-5">Escova Progressiva com Formol</h3>
+          <p class="text-base md:text-lg leading-relaxed">Alisamento duradouro com brilho intenso e controle de volume, usando produtos profissionais e equipe especializada.</p>
         </article>
         <article class="card" role="article" tabindex="0" aria-label="Escova Progressiva Orgânica">
-          <h3 class="text-3xl mb-5">Escova Progressiva Orgânica</h3>
-          <p class="text-lg leading-relaxed">Alisamento sem formol, indicado para todos os tipos de cabelo, com hidratação profunda e cuidado natural.</p>
+          <h3 class="text-2xl md:text-3xl mb-4 md:mb-5">Escova Progressiva Orgânica</h3>
+          <p class="text-base md:text-lg leading-relaxed">Alisamento sem formol, indicado para todos os tipos de cabelo, com hidratação profunda e cuidado natural.</p>
         </article>
         <article class="card" role="article" tabindex="0" aria-label="Tratamento Capilar">
-          <h3 class="text-3xl mb-5">Tratamento Capilar</h3>
-          <p class="text-lg leading-relaxed">Hidratação, nutrição e reconstrução para cabelos mais fortes, saudáveis e macios.</p>
+          <h3 class="text-2xl md:text-3xl mb-4 md:mb-5">Tratamento Capilar</h3>
+          <p class="text-base md:text-lg leading-relaxed">Hidratação, nutrição e reconstrução para cabelos mais fortes, saudáveis e macios.</p>
         </article>
         <article class="card" role="article" tabindex="0" aria-label="Consultoria Personalizada">
-          <h3 class="text-3xl mb-5">Consultoria Personalizada</h3>
-          <p class="text-lg leading-relaxed">Análise detalhada do seu cabelo para indicar o melhor tratamento e cuidados específicos.</p>
+          <h3 class="text-2xl md:text-3xl mb-4 md:mb-5">Consultoria Personalizada</h3>
+          <p class="text-base md:text-lg leading-relaxed">Análise detalhada do seu cabelo para indicar o melhor tratamento e cuidados específicos.</p>
         </article>
       </div>
     </section>
 
     <!-- Galeria -->
     <section id="galeria" class="content-section" tabindex="0" aria-labelledby="galeria-title">
-      <h2 id="galeria-title" class="text-5xl text-center mb-16">Galeria</h2>
-      <div class="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
+      <h2 id="galeria-title" class="text-3xl md:text-4xl lg:text-5xl text-center mb-8 md:mb-12">Nossa Galeria</h2>
+      <div class="grid gap-6 sm:gap-8 md:gap-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div class="gallery-item" tabindex="0" aria-label="Antes e depois escova progressiva com formol">
-          <img src="img/Monique1.jpeg" alt="Antes e depois escova progressiva com formol" loading="lazy" />
+          <img src="img/cabelo6.jpeg" alt="Antes e depois escova progressiva com formol" loading="lazy" />
         </div>
         <div class="gallery-item" tabindex="0" aria-label="Escova progressiva orgânica">
-          <img src="img/cabelo.jpg" alt="Escova progressiva orgânica" loading="lazy" />
+          <img src="img/cabelo.jpeg" alt="Escova progressiva orgânica" loading="lazy" />
         </div>
         <div class="gallery-item" tabindex="0" aria-label="Tratamento capilar">
-          <img src="img/May1.JPG" alt="Tratamento capilar" loading="lazy" />
+          <img src="img/cabelo4.jpeg" alt="Tratamento capilar" loading="lazy" />
         </div>
         <div class="gallery-item" tabindex="0" aria-label="Consultoria capilar personalizada">
-          <img src="img/Cabelo2.jpeg" alt="Consultoria capilar personalizada" loading="lazy" />
+          <img src="img/cabelo5.jpeg" alt="Consultoria capilar personalizada" loading="lazy" />
         </div>
       </div>
     </section>
 
     <!-- Contato -->
     <section id="contato" class="content-section" tabindex="0" aria-labelledby="contato-title">
-      <h2 id="contato-title" class="text-5xl mb-14 text-center" style="color: var(--dourado-1); text-shadow: 0 0 10px var(--dourado-2);">Contato</h2>
-      <p class="mb-14 text-lg max-w-lg mx-auto leading-relaxed text-center" style="color: var(--amarelo-claro);">
-        Entre em contato e agende seu horário. Estamos disponíveis nas principais redes sociais e telefone.
-      </p>
+      <h2 id="contato-title" class="text-3xl md:text-4xl lg:text-5xl mb-6 md:mb-10 text-center" style="color: var(--dourado-1); text-shadow: 0 0 10px var(--dourado-2);">Entre em Contato</h2>
+      <div class="max-w-lg mx-auto bg-azul-escuro bg-opacity-80 rounded-lg p-6 md:p-8 mb-8 md:mb-12">
+        <p class="text-lg md:text-xl leading-relaxed text-center" style="color: var(--amarelo-claro);">
+          Agende seu horário conosco. Estamos disponíveis nas principais redes sociais e telefone.
+        </p>
+      </div>
 
-      <div class="flex flex-col gap-6 max-w-xs mx-auto">
+      <div class="flex flex-col gap-4 md:gap-6 max-w-xs mx-auto">
         <!-- WhatsApp -->
         <a href="https://wa.me/5541997869763" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp" aria-label="WhatsApp - (41) 99786-9763">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -340,7 +513,7 @@
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M3 10a9 9 0 0115.53-6.57L21 4a9 9 0 11-18 6zM14 14l-2 2m0 0l-2-2m2 2V10" />
           </svg>
-          WhatsApp: (41) 99786-9763
+          WhatsApp
         </a>
 
         <!-- Telefone -->
@@ -350,7 +523,7 @@
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.45 4.35a1 1 0 01-.217 1.023l-2.2 2.2a11.042 11.042 0 005.516 5.516l2.2-2.2a1 1 0 011.023-.217l4.35 1.45a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C7.82 21 3 16.18 3 10V5z" />
           </svg>
-          Ligar: (41) 99786-9763
+          Ligar Agora
         </a>
 
         <!-- Instagram -->
@@ -380,22 +553,53 @@
   </footer>
 
   <script>
-   document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
       const navLinks = document.querySelectorAll('.nav-link');
       const contentSections = document.querySelectorAll('.content-section');
       const initialContent = document.getElementById('initial-content');
-      const logoHeader = document.querySelector('header img');
-
+      const logoHeader = document.getElementById('logo-header');
+      const menuToggle = document.querySelector('.menu-toggle');
+      const navMenu = document.getElementById('main-menu');
+      const mobileOverlay = document.querySelector('.mobile-overlay');
+      
+      // Funções para controle do menu mobile
+      function openMobileMenu() {
+        navMenu.classList.add('show');
+        mobileOverlay.classList.add('show');
+        menuToggle.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+      }
+      
+      function closeMobileMenu() {
+        navMenu.classList.remove('show');
+        mobileOverlay.classList.remove('show');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+      }
+      
+      // Menu mobile toggle
+      menuToggle.addEventListener('click', function() {
+        const isExpanded = this.getAttribute('aria-expanded') === 'true';
+        if (isExpanded) {
+          closeMobileMenu();
+        } else {
+          openMobileMenu();
+        }
+      });
+      
+      // Fechar menu ao clicar no overlay
+      mobileOverlay.addEventListener('click', closeMobileMenu);
+      
+      // Navegação suave
       navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
           e.preventDefault();
           
           const targetId = this.getAttribute('href').substring(1);
           
-          // Esconde todas as seções
-           contentSections.forEach(section => {
-           section.classList.remove('active');
-           initialContent.remove('active');
+          // Esconde todas as seções (incluindo a inicial com a logo)
+          contentSections.forEach(section => {
+            section.classList.remove('active');
           });
           
           // Mostra apenas a seção clicada
@@ -406,14 +610,41 @@
             behavior: 'smooth',
             block: 'start' 
           });
+          
+          // Fecha o menu mobile após clicar em um link
+          closeMobileMenu();
         });
       });
       
       // Volta para a página inicial ao clicar no símbolo
-          // Recarrega a página ao clicar no símbolo
-    logoHeader.addEventListener('click', function() {
-      window.location.reload();
-    });
+      logoHeader.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Esconde todas as seções exceto a inicial
+        contentSections.forEach(section => {
+          section.classList.remove('active');
+        });
+        initialContent.classList.add('active');
+        
+        // Scroll para o topo
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        
+        // Fecha o menu mobile se estiver aberto
+        closeMobileMenu();
+      });
+      
+      // Mostra a seção inicial por padrão
+      initialContent.classList.add('active');
+      
+      // Fechar menu ao pressionar ESC
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeMobileMenu();
+        }
+      });
     });
   </script>
 </body>
