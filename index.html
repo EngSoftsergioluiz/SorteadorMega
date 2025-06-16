@@ -552,109 +552,109 @@
     <p>© 2025 Desenvolvido por InfraCode Solutions.</p>
   </footer>
 
-  <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const navLinks = document.querySelectorAll('.nav-link');
-  const contentSections = document.querySelectorAll('.content-section');
-  const initialContent = document.getElementById('initial-content');
-  const centerLogo = document.querySelector('.center-logo'); // Adicione esta linha
-  const logoHeader = document.getElementById('logo-header');
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navMenu = document.getElementById('main-menu');
-  const mobileOverlay = document.querySelector('.mobile-overlay');
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const contentSections = document.querySelectorAll('.content-section');
+    const initialContent = document.getElementById('initial-content');
+    const centerLogo = document.querySelector('.center-logo'); // Adicione esta linha
+    const logoHeader = document.getElementById('logo-header');
+    const menuToggle = document.querySelector('.menu-toggle');
+    const navMenu = document.getElementById('main-menu');
+    const mobileOverlay = document.querySelector('.mobile-overlay');
   
-  // Funções para controle do menu mobile
-  function openMobileMenu() {
-    navMenu.classList.add('show');
-    mobileOverlay.classList.add('show');
-    menuToggle.setAttribute('aria-expanded', 'true');
-    document.body.style.overflow = 'hidden';
-  }
-  
-  function closeMobileMenu() {
-    navMenu.classList.remove('show');
-    mobileOverlay.classList.remove('show');
-    menuToggle.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
-  }
-  
-  // Menu mobile toggle
-  menuToggle.addEventListener('click', function() {
-    const isExpanded = this.getAttribute('aria-expanded') === 'true';
-    if (isExpanded) {
-      closeMobileMenu();
-    } else {
-      openMobileMenu();
+    // Funções para controle do menu mobile
+    function openMobileMenu() {
+      navMenu.classList.add('show');
+      mobileOverlay.classList.add('show');
+      menuToggle.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
     }
-  });
+
+    function closeMobileMenu() {
+      navMenu.classList.remove('show');
+      mobileOverlay.classList.remove('show');
+      menuToggle.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    // Menu mobile toggle
+    menuToggle.addEventListener('click', function() {
+      const isExpanded = this.getAttribute('aria-expanded') === 'true';
+      if (isExpanded) {
+        closeMobileMenu();
+      } else {
+        openMobileMenu();
+      }
+    });
   
-  // Fechar menu ao clicar no overlay
-  mobileOverlay.addEventListener('click', closeMobileMenu);
+    // Fechar menu ao clicar no overlay
+    mobileOverlay.addEventListener('click', closeMobileMenu);
+    
+    // Navegação suave
+    navLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        const targetId = this.getAttribute('href').substring(1);
+
+        // Esconde todas as seções (incluindo a inicial com a logo)
+        contentSections.forEach(section => {
+          section.classList.remove('active');
+        });
+
+        // Mostra apenas a seção clicada
+        document.getElementById(targetId).classList.add('active');
+
+        // Oculta a logo central quando não estiver na página inicial
+        if (targetId !== 'initial-content') {
+          centerLogo.style.display = 'none';
+        }
+
+        // Scroll suave para a seção
+        document.getElementById(targetId).scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start' 
+        });
+
+        // Fecha o menu mobile após clicar em um link
+        closeMobileMenu();
+      });
+    });
   
-  // Navegação suave
-  navLinks.forEach(link => {
-    link.addEventListener('click', function(e) {
+    // Volta para a página inicial ao clicar no símbolo
+    logoHeader.addEventListener('click', function(e) {
       e.preventDefault();
-      
-      const targetId = this.getAttribute('href').substring(1);
-      
-      // Esconde todas as seções (incluindo a inicial com a logo)
+
+      // Esconde todas as seções exceto a inicial
       contentSections.forEach(section => {
         section.classList.remove('active');
       });
-      
-      // Mostra apenas a seção clicada
-      document.getElementById(targetId).classList.add('active');
-      
-      // Oculta a logo central quando não estiver na página inicial
-      if (targetId !== 'initial-content') {
-        centerLogo.style.display = 'none';
-      }
-      
-      // Scroll suave para a seção
-      document.getElementById(targetId).scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start' 
+      initialContent.classList.add('active');
+
+      // Mostra a logo central novamente
+      centerLogo.style.display = '';
+
+      // Scroll para o topo
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
       });
-      
-      // Fecha o menu mobile após clicar em um link
+
+      // Fecha o menu mobile se estiver aberto
       closeMobileMenu();
     });
-  });
-  
-  // Volta para a página inicial ao clicar no símbolo
-  logoHeader.addEventListener('click', function(e) {
-    e.preventDefault();
-    
-    // Esconde todas as seções exceto a inicial
-    contentSections.forEach(section => {
-      section.classList.remove('active');
-    });
+
+    // Mostra a seção inicial por padrão
     initialContent.classList.add('active');
-    
-    // Mostra a logo central novamente
-    centerLogo.style.display = '';
-    
-    // Scroll para o topo
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
+
+    // Fechar menu ao pressionar ESC
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeMobileMenu();
+      }
     });
-    
-    // Fecha o menu mobile se estiver aberto
-    closeMobileMenu();
-  });
-  
-  // Mostra a seção inicial por padrão
-  initialContent.classList.add('active');
-  
-  // Fechar menu ao pressionar ESC
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      closeMobileMenu();
-    }
-  });
 });
-  </script>
+</script>
 </body>
 </html>
