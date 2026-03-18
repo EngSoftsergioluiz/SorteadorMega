@@ -321,6 +321,51 @@
     .modal-actions { display: flex; gap: 10px; margin-top: 14px; }
     .modal-actions .btn { flex: 1; }
 
+    /* ===== Password Gate ===== */
+    #password-gate {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    #password-gate .gate-card {
+      background: var(--card-bg);
+      border: 1px solid var(--dourado-1);
+      border-radius: 16px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+    #password-gate .gate-icon { font-size: 2.8rem; margin-bottom: 12px; }
+    #password-gate h2 {
+      color: var(--dourado-1);
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+    #password-gate p {
+      color: var(--cinza);
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    #password-gate input[type="password"] {
+      width: 100%;
+      text-align: center;
+      letter-spacing: 4px;
+      font-size: 1.3rem;
+      margin-bottom: 14px;
+    }
+    #gate-error {
+      color: var(--vermelho);
+      font-size: 0.85rem;
+      min-height: 1.2em;
+      margin-bottom: 10px;
+    }
+
     /* Scrollable history */
     .scroll-box {
       max-height: 250px;
@@ -329,6 +374,20 @@
   </style>
 </head>
 <body>
+
+<!-- ===== Password Gate ===== -->
+<div id="password-gate">
+  <div class="gate-card">
+    <div class="gate-icon">🔒</div>
+    <h2>Área Restrita</h2>
+    <p>Digite a senha para acessar o estoque.</p>
+    <input type="password" id="gate-input" placeholder="••••••"
+           maxlength="20" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')checkPassword()" />
+    <div id="gate-error"></div>
+    <button class="btn btn-primary btn-full" onclick="checkPassword()">Entrar</button>
+  </div>
+</div>
 
 <header class="app-header">
   <a href="index.html" class="btn-back" title="Voltar ao site">←</a>
@@ -1006,6 +1065,31 @@ function formatDate(iso) {
     return new Date(iso).toLocaleString('pt-BR');
   } catch {
     return iso;
+  }
+}
+
+/* ===================================================
+   PASSWORD GATE
+=================================================== */
+(function () {
+  var gate = document.getElementById('password-gate');
+  if (sessionStorage.getItem('kc_auth') === '1') {
+    gate.style.display = 'none';
+    return;
+  }
+  document.getElementById('gate-input').focus();
+})();
+
+function checkPassword() {
+  var input = document.getElementById('gate-input').value;
+  if (input === '040919') {
+    sessionStorage.setItem('kc_auth', '1');
+    document.getElementById('password-gate').style.display = 'none';
+  } else {
+    var errEl = document.getElementById('gate-error');
+    errEl.textContent = 'Senha incorreta. Tente novamente.';
+    document.getElementById('gate-input').value = '';
+    document.getElementById('gate-input').focus();
   }
 }
 
