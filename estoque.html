@@ -371,6 +371,44 @@
       max-height: 250px;
       overflow-y: auto;
     }
+
+    /* ===== Nota por Foto ===== */
+    #nota-foto-preview {
+      width: 100%;
+      border-radius: 8px;
+      max-height: 280px;
+      object-fit: contain;
+      border: 1px solid var(--border);
+      display: block;
+    }
+    .nota-ocr-progress-wrap {
+      background: rgba(228, 195, 107, 0.15);
+      border-radius: 4px;
+      height: 6px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .nota-ocr-progress-bar {
+      background: var(--dourado-1);
+      height: 100%;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.2s;
+    }
+    .nota-item-row { position: relative; }
+    .nota-item-row input { margin-bottom: 6px; }
+    .nota-item-row input:last-of-type { margin-bottom: 0; }
+    .nota-ref-text {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.78rem;
+      color: var(--amarelo-claro);
+      white-space: pre-wrap;
+      max-height: 160px;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -481,8 +519,60 @@
   </div>
 </section>
 
-<!-- CONFERIR NOTA -->
+<!-- CONFERIR / IMPORTAR NOTA -->
 <section class="screen" id="screen-invoice">
+
+  <!-- CARD: Ler Nota por Foto (novo) -->
+  <div class="card">
+    <h2>📸 Ler Nota por Foto</h2>
+    <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:10px;">
+      Tire uma foto da nota de compra. O sistema lerá os códigos automaticamente para cadastro no estoque.
+    </p>
+    <!-- hidden file input – capture="environment" opens camera on mobile -->
+    <input type="file" id="nota-foto-input" accept="image/*" capture="environment"
+           aria-label="Selecionar foto da nota fiscal"
+           style="display:none;" onchange="processNotaFoto(event)" />
+    <button class="btn btn-primary btn-full" id="btn-nota-foto"
+            onclick="document.getElementById('nota-foto-input').click()">
+      📷 Tirar foto / Selecionar imagem
+    </button>
+
+    <!-- Preview + OCR progress (hidden until photo selected) -->
+    <div id="nota-foto-area" style="display:none;margin-top:12px;">
+      <img id="nota-foto-preview" alt="Prévia da nota" />
+      <div id="nota-ocr-status"
+           style="text-align:center;color:var(--cinza);font-size:0.85rem;margin-top:8px;"></div>
+      <div id="nota-ocr-progress-wrap" class="nota-ocr-progress-wrap" style="display:none;">
+        <div id="nota-ocr-progress-bar" class="nota-ocr-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARD: Itens da Nota (oculto até processamento ou adição manual) -->
+  <div id="nota-itens-card" style="display:none;">
+    <div class="card">
+      <h2>📦 Itens da Nota</h2>
+      <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:10px;">
+        Revise os itens encontrados, ajuste nomes e quantidades, e salve no estoque.
+      </p>
+      <div id="nota-itens-list"></div>
+      <button class="btn btn-secondary btn-full mt8" onclick="addNotaManualItem()">
+        + Adicionar item manualmente
+      </button>
+    </div>
+    <button class="btn btn-success btn-full" style="margin-bottom:14px;"
+            onclick="salvarNotaNoEstoque()">
+      ➕ Salvar todos no estoque
+    </button>
+  </div>
+
+  <!-- Botão para adicionar itens sem foto -->
+  <button class="btn btn-secondary btn-full" style="margin-bottom:14px;"
+          onclick="addNotaManualItem()">
+    ✏️ Adicionar item sem foto
+  </button>
+
+  <!-- CARD: Conferência de Nota (existente) -->
   <div class="card">
     <h2>📋 Conferência de Nota</h2>
     <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:10px;">
@@ -868,6 +958,258 @@ function updateStats() {
   const totalItems = products.reduce((s, p) => s + p.qty, 0);
   document.getElementById('stat-total-items').textContent    = totalItems;
   document.getElementById('stat-total-products').textContent = products.length;
+}
+
+/* ===================================================
+   NOTA POR FOTO
+=================================================== */
+let _notaPhotoUrl = null; // tracks current object URL for cleanup
+
+/**
+ * Lazily injects a <script> tag and resolves when it loads.
+ * Uses strict src equality check to avoid CSS-selector injection issues.
+ */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const existing = Array.from(document.querySelectorAll('script'))
+                          .find(s => s.src === src);
+    if (existing) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.crossOrigin = 'anonymous';
+    s.onload  = resolve;
+    s.onerror = () => reject(new Error('Falha ao carregar: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+/**
+ * Called when the user selects / captures a photo.
+ * Runs OCR via Tesseract.js (lazy-loaded) and builds the review list.
+ */
+async function processNotaFoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Revoke previous object URL to free memory
+  if (_notaPhotoUrl) { URL.revokeObjectURL(_notaPhotoUrl); }
+  _notaPhotoUrl = URL.createObjectURL(file);
+
+  // Reset UI
+  const previewEl      = document.getElementById('nota-foto-preview');
+  const fotoArea       = document.getElementById('nota-foto-area');
+  const statusEl       = document.getElementById('nota-ocr-status');
+  const progressWrap   = document.getElementById('nota-ocr-progress-wrap');
+  const progressBar    = document.getElementById('nota-ocr-progress-bar');
+
+  previewEl.src = _notaPhotoUrl;
+  fotoArea.style.display      = 'block';
+  progressWrap.style.display  = 'block';
+  progressBar.style.width     = '0%';
+  statusEl.textContent        = 'Aguardando…';
+  document.getElementById('nota-itens-card').style.display = 'none';
+
+  try {
+    statusEl.textContent = 'Carregando módulo OCR…';
+
+    // Lazy-load Tesseract.js from CDN (only on first use)
+    // Note: add integrity="sha384-<hash>" after computing the SRI hash of this version for production use
+    if (typeof Tesseract === 'undefined') {
+      await loadScript('https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js');
+    }
+
+    statusEl.textContent = 'Iniciando leitura de texto…';
+
+    const worker = await Tesseract.createWorker('por', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          const pct = Math.round(m.progress * 100);
+          progressBar.style.width = pct + '%';
+          statusEl.textContent = `Lendo texto: ${pct}%`;
+        } else if (m.status === 'loading tesseract core') {
+          statusEl.textContent = 'Carregando OCR…';
+        } else if (m.status === 'loading language traineddata') {
+          statusEl.textContent = 'Baixando dados do idioma… (pode demorar)';
+        } else if (m.status === 'initializing api') {
+          statusEl.textContent = 'Preparando…';
+        }
+      }
+    });
+
+    const { data: { text } } = await worker.recognize(file);
+    await worker.terminate();
+
+    progressBar.style.width  = '100%';
+    statusEl.textContent     = '✅ Texto extraído! Revise os itens abaixo.';
+
+    // Extract unique barcode-like sequences (7+ consecutive digits)
+    const codes = [...new Set(text.match(/\b\d{7,}\b/g) || [])];
+
+    _buildNotaItensList(codes, text);
+
+  } catch (err) {
+    statusEl.textContent       = '❌ Não foi possível ler o texto da imagem.';
+    progressWrap.style.display = 'none';
+    showToast('Erro no OCR. Adicione os itens manualmente.');
+    _buildNotaItensList([], '');
+  } finally {
+    // Always reset so the user can re-select the same file if needed
+    event.target.value = '';
+  }
+}
+
+/**
+ * Populates the "Itens da Nota" card from OCR-detected codes.
+ * @param {string[]} codes  – barcode strings found by OCR
+ * @param {string}   ocrText – full OCR text (for fallback reference display)
+ */
+function _buildNotaItensList(codes, ocrText) {
+  const listEl  = document.getElementById('nota-itens-list');
+  const cardEl  = document.getElementById('nota-itens-card');
+  const data    = loadData();
+
+  listEl.innerHTML = '';
+
+  if (codes.length > 0) {
+    codes.forEach(code => {
+      const existing = data[code];
+      _appendNotaItemRow(listEl, {
+        code,
+        name: existing ? existing.name : '',
+        qty:  1
+      });
+    });
+  } else {
+    // No barcodes found – show placeholder + optional OCR text reference
+    const msgEl = document.createElement('p');
+    msgEl.style.cssText = 'color:var(--cinza);font-size:0.85rem;margin-bottom:8px;';
+    msgEl.id = 'nota-no-codes-msg';
+    msgEl.textContent = 'Nenhum código detectado. Adicione manualmente:';
+    listEl.appendChild(msgEl);
+
+    if (ocrText.trim()) {
+      const refWrap = document.createElement('div');
+      refWrap.style.marginTop = '10px';
+      refWrap.innerHTML =
+        '<p style="font-size:0.82rem;color:var(--cinza);margin-bottom:4px;">Texto detectado (referência):</p>' +
+        '<div class="nota-ref-text">' + escHtml(ocrText.trim()) + '</div>';
+      listEl.appendChild(refWrap);
+    }
+  }
+
+  cardEl.style.display = 'block';
+}
+
+/**
+ * Appends one editable item row to the given container element.
+ * For auto-detected codes the code field is hidden (read-only label);
+ * for manual rows it is a visible text input.
+ */
+function _appendNotaItemRow(container, { code = '', name = '', qty = 1 } = {}) {
+  const isAutoDetected = code !== '';
+  const div = document.createElement('div');
+  div.className = 'card nota-item-row';
+  div.style.marginBottom = '8px';
+
+  // Code field: hidden (auto-detected) or visible text input (manual)
+  const codeField = isAutoDetected
+    ? '<input type="hidden" class="nota-item-code" value="' + escHtml(code) + '" />'
+    : '<input type="text" class="nota-item-code" placeholder="Código de barras (opcional)" value="" />';
+
+  div.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+      '<span style="font-size:0.78rem;color:var(--cinza);">' +
+        (isAutoDetected ? escHtml(code) : 'Item manual') +
+      '</span>' +
+      '<button class="btn btn-sm btn-danger" onclick="removeNotaItemRow(this)">✕</button>' +
+    '</div>' +
+    codeField +
+    '<input type="text"   class="nota-item-name" placeholder="Nome do produto" value="' + escHtml(name) + '" />' +
+    '<input type="number" class="nota-item-qty"  placeholder="Qtd" min="1" value="' + qty + '" />';
+
+  container.appendChild(div);
+  return div;
+}
+
+/**
+ * Removes a nota item row when the ✕ button is clicked.
+ */
+function removeNotaItemRow(btn) {
+  const row = btn.closest('.nota-item-row');
+  if (row) row.remove();
+}
+
+/**
+ * Adds a blank manual-entry row to the Itens da Nota card.
+ * Shows the card if it was hidden.
+ */
+function addNotaManualItem() {
+  const cardEl  = document.getElementById('nota-itens-card');
+  const listEl  = document.getElementById('nota-itens-list');
+
+  // Remove the "no codes detected" placeholder message if present
+  const msg = document.getElementById('nota-no-codes-msg');
+  if (msg) msg.remove();
+
+  const row = _appendNotaItemRow(listEl, { code: '', name: '', qty: 1 });
+  cardEl.style.display = 'block';
+
+  // Focus the name field for quick entry
+  const nameInput = row.querySelector('.nota-item-name');
+  if (nameInput) nameInput.focus();
+}
+
+/**
+ * Reads all rows from the Itens da Nota list and saves them to inventory.
+ */
+function salvarNotaNoEstoque() {
+  const rows = document.querySelectorAll('#nota-itens-list .nota-item-row');
+  if (rows.length === 0) { showToast('Nenhum item para salvar.'); return; }
+
+  const data = loadData();
+  let saved   = 0;
+  let skipped = 0;
+
+  rows.forEach(row => {
+    const codeEl = row.querySelector('.nota-item-code');
+    const nameEl = row.querySelector('.nota-item-name');
+    const qtyEl  = row.querySelector('.nota-item-qty');
+
+    const code = codeEl ? codeEl.value.trim() : '';
+    const name = nameEl ? nameEl.value.trim() : '';
+    const qty  = parseInt(qtyEl ? qtyEl.value : '1', 10) || 1;
+
+    if (!name) { skipped++; return; }
+
+    // Use barcode as key; if empty, derive a unique key from name + timestamp
+    const key = code || ('item_' + Date.now().toString(36) + '_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 20));
+
+    if (data[key]) {
+      data[key].qty  += qty;
+      data[key].name  = name;
+    } else {
+      data[key] = { code: key, name, qty };
+    }
+    addHistoryEntry('add', key, name, qty);
+    saved++;
+  });
+
+  if (saved > 0) {
+    saveData(data);
+    updateStats();
+    const skipMsg = skipped > 0 ? ` (${skipped} sem nome ignorado(s))` : '';
+    showToast(`✅ ${saved} produto(s) adicionado(s) ao estoque!${skipMsg}`);
+
+    // Reset the photo import UI
+    document.getElementById('nota-itens-card').style.display   = 'none';
+    document.getElementById('nota-foto-area').style.display    = 'none';
+    document.getElementById('nota-itens-list').innerHTML       = '';
+    if (_notaPhotoUrl) { URL.revokeObjectURL(_notaPhotoUrl); _notaPhotoUrl = null; }
+  } else if (skipped > 0) {
+    showToast(`⚠️ Todos os ${skipped} item(ns) estavam sem nome e foram ignorados.`);
+  } else {
+    showToast('Nenhum item para salvar.');
+  }
 }
 
 /* ===================================================
