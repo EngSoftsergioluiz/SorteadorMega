@@ -983,6 +983,98 @@ function loadScript(src) {
   });
 }
 
+const OCR_SCRIPT_SOURCES = [
+  'https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js',
+  'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js'
+];
+
+async function ensureTesseractLoaded() {
+  if (typeof Tesseract !== 'undefined') return;
+  let lastErr = null;
+  for (const src of OCR_SCRIPT_SOURCES) {
+    try {
+      await loadScript(src);
+      if (typeof Tesseract !== 'undefined') return;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw (lastErr || new Error('Não foi possível carregar o OCR.'));
+}
+
+async function createNotaOcrWorker(logger) {
+  // Uses por+eng to improve recognition on mixed notes (Portuguese text + alphanumeric refs)
+  // in both flows below (preferred API and compatibility fallback).
+  // Preferred flow for current versions (language initialized at creation)
+  try {
+    // Second argument = OEM mode (1 = LSTM only), same behavior used previously.
+    return await Tesseract.createWorker('por+eng', 1, { logger });
+  } catch (err) {
+    console.debug('OCR worker fallback (API compatibility):', err);
+    // Compatibility flow for older versions (manual lifecycle)
+    const worker = await Tesseract.createWorker({ logger });
+    if (typeof worker.load === 'function') {
+      await worker.load();
+    }
+    if (typeof worker.loadLanguage === 'function') {
+      await worker.loadLanguage('por+eng');
+    }
+    if (typeof worker.initialize === 'function') {
+      await worker.initialize('por+eng');
+    }
+    return worker;
+  }
+}
+
+async function prepareNotaImageForOcr(file, imageUrl) {
+  const OCR_MAX_IMAGE_SIDE = 2200;
+  const OCR_IMAGE_PREP_TIMEOUT_MS = 10000;
+  return new Promise(resolve => {
+    let done = false;
+    const finish = value => {
+      if (done) return;
+      done = true;
+      resolve(value);
+    };
+    const timeoutId = setTimeout(() => finish(file), OCR_IMAGE_PREP_TIMEOUT_MS);
+
+    const img = new Image();
+    img.onload = () => {
+      clearTimeout(timeoutId);
+      const width = img.naturalWidth || 0;
+      const height = img.naturalHeight || 0;
+      const longSide = Math.max(width, height);
+      if (longSide <= 0) {
+        finish(file);
+        return;
+      }
+      const scale = longSide > OCR_MAX_IMAGE_SIDE ? (OCR_MAX_IMAGE_SIDE / longSide) : 1;
+      if (scale >= 1) {
+        finish(file);
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(width * scale));
+      canvas.height = Math.max(1, Math.round(height * scale));
+
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) {
+        finish(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      finish(canvas);
+    };
+    img.onerror = () => {
+      clearTimeout(timeoutId);
+      finish(file);
+    };
+    img.src = imageUrl;
+  });
+}
+
 /**
  * Called when the user selects / captures a photo.
  * Runs OCR via Tesseract.js (lazy-loaded) and builds the review list.
@@ -1012,52 +1104,52 @@ async function processNotaFoto(event) {
   try {
     statusEl.textContent = 'Carregando módulo OCR…';
 
-    // Lazy-load Tesseract.js from CDN (only on first use)
-    // Note: add integrity="sha384-<hash>" after computing the SRI hash of this version for production use
-    if (typeof Tesseract === 'undefined') {
-      await loadScript('https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js');
-    }
+    await ensureTesseractLoaded();
+
+    statusEl.textContent = 'Preparando foto…';
+    const ocrSource = await prepareNotaImageForOcr(file, _notaPhotoUrl);
 
     statusEl.textContent = 'Iniciando leitura de texto…';
 
-    const worker = await Tesseract.createWorker('por', 1, {
-      logger: m => {
-        if (m.status === 'recognizing text') {
-          const pct = Math.round(m.progress * 100);
-          progressBar.style.width = pct + '%';
-          statusEl.textContent = `Lendo texto: ${pct}%`;
-        } else if (m.status === 'loading tesseract core') {
-          statusEl.textContent = 'Carregando OCR…';
-        } else if (m.status === 'loading language traineddata') {
-          statusEl.textContent = 'Baixando dados do idioma… (pode demorar)';
-        } else if (m.status === 'initializing api') {
-          statusEl.textContent = 'Preparando…';
-        }
+    const worker = await createNotaOcrWorker(m => {
+      if (m.status === 'recognizing text') {
+        const pct = Math.round(m.progress * 100);
+        progressBar.style.width = pct + '%';
+        statusEl.textContent = `Lendo texto: ${pct}%`;
+      } else if (m.status === 'loading tesseract core') {
+        statusEl.textContent = 'Carregando OCR…';
+      } else if (m.status === 'loading language traineddata') {
+        statusEl.textContent = 'Baixando dados do idioma… (pode demorar)';
+      } else if (m.status === 'initializing api') {
+        statusEl.textContent = 'Preparando…';
       }
     });
 
-    const { data: { text } } = await worker.recognize(file);
-    await worker.terminate();
+    try {
+      const { data: { text } } = await worker.recognize(ocrSource);
 
-    progressBar.style.width  = '100%';
-    statusEl.textContent     = '✅ Texto extraído! Revise os itens abaixo.';
+      progressBar.style.width  = '100%';
+      statusEl.textContent     = '✅ Texto extraído! Revise os itens abaixo.';
 
-    // Extract unique barcode-like sequences (7+ consecutive digits)
-    const codes = [...new Set(text.match(/\b\d{7,}\b/g) || [])];
+      // Extract unique barcode-like sequences (7+ consecutive digits)
+      const codes = [...new Set(text.match(/\b\d{7,}\b/g) || [])];
 
-    _buildNotaItensList(codes, text);
+      _buildNotaItensList(codes, text);
+    } finally {
+      await worker.terminate();
+    }
 
   } catch (err) {
+    console.error('Erro ao processar foto da nota:', err);
     statusEl.textContent       = '❌ Não foi possível ler o texto da imagem.';
     progressWrap.style.display = 'none';
-    showToast('Erro no OCR. Adicione os itens manualmente.');
+    showToast('Erro no OCR da foto. Tente novamente ou adicione manualmente.');
     _buildNotaItensList([], '');
   } finally {
     // Always reset so the user can re-select the same file if needed
     event.target.value = '';
   }
 }
-
 /**
  * Populates the "Itens da Nota" card from OCR-detected codes.
  * @param {string[]} codes  – barcode strings found by OCR
