@@ -977,15 +977,23 @@ function loadScript(src) {
     const s = document.createElement('script');
     s.src = src;
     s.crossOrigin = 'anonymous';
-    s.onload  = resolve;
-    s.onerror = () => reject(new Error('Falha ao carregar: ' + src));
+    const timeoutId = setTimeout(() => reject(new Error('Tempo esgotado ao carregar: ' + src)), 15000);
+    s.onload = () => {
+      clearTimeout(timeoutId);
+      resolve();
+    };
+    s.onerror = () => {
+      clearTimeout(timeoutId);
+      reject(new Error('Falha ao carregar: ' + src));
+    };
     document.head.appendChild(s);
   });
 }
 
 const OCR_SCRIPT_SOURCES = [
   'https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js',
-  'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js'
+  'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js'
 ];
 
 async function ensureTesseractLoaded() {
@@ -996,10 +1004,11 @@ async function ensureTesseractLoaded() {
       await loadScript(src);
       if (typeof Tesseract !== 'undefined') return;
     } catch (err) {
+      console.warn('Falha ao carregar OCR em', src, err);
       lastErr = err;
     }
   }
-  throw (lastErr || new Error('Não foi possível carregar o OCR.'));
+  throw (lastErr || new Error('Não foi possível carregar o OCR. Verifique sua conexão e tente novamente.'));
 }
 
 async function createNotaOcrWorker(logger) {
@@ -1127,21 +1136,35 @@ async function processNotaFoto(event) {
 
     try {
       const { data: { text } } = await worker.recognize(ocrSource);
+      const normalizedText = (text || '').trim();
+      if (!normalizedText) {
+        throw new Error('OCR sem texto detectável');
+      }
 
       progressBar.style.width  = '100%';
       statusEl.textContent     = '✅ Texto extraído! Revise os itens abaixo.';
 
       // Extract unique barcode-like sequences (7+ consecutive digits)
-      const codes = [...new Set(text.match(/\b\d{7,}\b/g) || [])];
+      const codes = [...new Set(normalizedText.match(/\b\d{7,}\b/g) || [])];
 
-      _buildNotaItensList(codes, text);
+      _buildNotaItensList(codes, normalizedText);
     } finally {
       await worker.terminate();
     }
 
   } catch (err) {
     console.error('Erro ao processar foto da nota:', err);
-    statusEl.textContent       = '❌ Não foi possível ler o texto da imagem.';
+    let message = '❌ Não foi possível ler o texto da imagem.';
+    if (err && err.message) {
+      if (err.message.includes('carregar o OCR') || err.message.includes('carregar:')) {
+        message = '❌ Não foi possível carregar o OCR. Verifique sua internet e tente novamente.';
+      } else if (err.message.includes('Tempo esgotado')) {
+        message = '❌ A leitura demorou muito. Tente uma foto mais nítida.';
+      } else if (err.message.includes('sem texto detectável')) {
+        message = '❌ Não encontramos texto legível. Tente uma foto mais próxima e sem reflexo.';
+      }
+    }
+    statusEl.textContent       = message;
     progressWrap.style.display = 'none';
     showToast('Erro no OCR da foto. Tente novamente ou adicione manualmente.');
     _buildNotaItensList([], '');
