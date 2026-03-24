@@ -964,6 +964,12 @@ function updateStats() {
    NOTA POR FOTO
 =================================================== */
 let _notaPhotoUrl = null; // tracks current object URL for cleanup
+const OCR_ERROR_CODES = Object.freeze({
+  LOAD: 'OCR_LOAD',
+  TIMEOUT: 'OCR_TIMEOUT',
+  EMPTY_TEXT: 'OCR_EMPTY_TEXT'
+});
+const OCR_SCRIPT_LOAD_TIMEOUT_MS = 15000;
 
 /**
  * Lazily injects a <script> tag and resolves when it loads.
@@ -975,16 +981,28 @@ function loadScript(src) {
                           .find(s => s.src === src);
     if (existing) { resolve(); return; }
     const s = document.createElement('script');
+    let settled = false;
+    const done = (fn, err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      s.onload = null;
+      s.onerror = null;
+      fn(err);
+    };
     s.src = src;
     s.crossOrigin = 'anonymous';
-    const timeoutId = setTimeout(() => reject(new Error('Tempo esgotado ao carregar: ' + src)), 15000);
-    s.onload = () => {
-      clearTimeout(timeoutId);
-      resolve();
-    };
+    const timeoutId = setTimeout(() => {
+      const err = new Error('Tempo esgotado ao carregar: ' + src);
+      err.code = OCR_ERROR_CODES.TIMEOUT;
+      if (s.parentNode) s.parentNode.removeChild(s);
+      done(reject, err);
+    }, OCR_SCRIPT_LOAD_TIMEOUT_MS);
+    s.onload = () => done(resolve);
     s.onerror = () => {
-      clearTimeout(timeoutId);
-      reject(new Error('Falha ao carregar: ' + src));
+      const err = new Error('Falha ao carregar: ' + src);
+      err.code = OCR_ERROR_CODES.LOAD;
+      done(reject, err);
     };
     document.head.appendChild(s);
   });
@@ -993,7 +1011,7 @@ function loadScript(src) {
 const OCR_SCRIPT_SOURCES = [
   'https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js',
   'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js',
 ];
 
 async function ensureTesseractLoaded() {
@@ -1004,11 +1022,14 @@ async function ensureTesseractLoaded() {
       await loadScript(src);
       if (typeof Tesseract !== 'undefined') return;
     } catch (err) {
-      console.warn('Falha ao carregar OCR em', src, err);
+      console.warn('Falha ao carregar OCR em', src, '[code:', err.code, ']:', err);
       lastErr = err;
     }
   }
-  throw (lastErr || new Error('Não foi possível carregar o OCR. Verifique sua conexão e tente novamente.'));
+  if (lastErr) throw lastErr;
+  const err = new Error('Não foi possível carregar o OCR. Verifique sua conexão e tente novamente.');
+  err.code = OCR_ERROR_CODES.LOAD;
+  throw err;
 }
 
 async function createNotaOcrWorker(logger) {
@@ -1138,7 +1159,9 @@ async function processNotaFoto(event) {
       const { data: { text } } = await worker.recognize(ocrSource);
       const normalizedText = (text || '').trim();
       if (!normalizedText) {
-        throw new Error('OCR sem texto detectável');
+        const err = new Error('OCR retornou texto vazio ou apenas espaços em branco');
+        err.code = OCR_ERROR_CODES.EMPTY_TEXT;
+        throw err;
       }
 
       progressBar.style.width  = '100%';
@@ -1155,14 +1178,12 @@ async function processNotaFoto(event) {
   } catch (err) {
     console.error('Erro ao processar foto da nota:', err);
     let message = '❌ Não foi possível ler o texto da imagem.';
-    if (err && err.message) {
-      if (err.message.includes('carregar o OCR') || err.message.includes('carregar:')) {
-        message = '❌ Não foi possível carregar o OCR. Verifique sua internet e tente novamente.';
-      } else if (err.message.includes('Tempo esgotado')) {
-        message = '❌ A leitura demorou muito. Tente uma foto mais nítida.';
-      } else if (err.message.includes('sem texto detectável')) {
-        message = '❌ Não encontramos texto legível. Tente uma foto mais próxima e sem reflexo.';
-      }
+    if (err.code === OCR_ERROR_CODES.LOAD) {
+      message = '❌ Não foi possível carregar o OCR. Verifique sua internet e tente novamente.';
+    } else if (err.code === OCR_ERROR_CODES.TIMEOUT) {
+      message = '❌ O carregamento do OCR demorou muito. Verifique sua internet e tente novamente.';
+    } else if (err.code === OCR_ERROR_CODES.EMPTY_TEXT) {
+      message = '❌ Não encontramos texto legível. Tente uma foto mais próxima e sem reflexo.';
     }
     statusEl.textContent       = message;
     progressWrap.style.display = 'none';
