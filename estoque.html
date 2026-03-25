@@ -993,7 +993,7 @@ function updateStats() {
 let _notaPhotoUrl = null; // tracks current object URL for cleanup
 
 const GEMINI_KEY_STORAGE = 'kc_gemini_api_key';
-const GEMINI_API_URL     = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_API_BASE    = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 // Low temperature → more deterministic, structured JSON output from the model
 const GEMINI_TEMPERATURE = 0.1;
 // 2048 tokens is ample for a typical invoice product list response
@@ -1063,33 +1063,54 @@ async function extractItemsWithGemini(file) {
     'Se um produto não tiver código visível, use "" no campo code.\n' +
     'Se não encontrar nenhum produto, retorne [].';
 
-  const response = await fetch(GEMINI_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      // Use header-based auth to avoid API key appearing in request URLs/logs
-      'x-goog-api-key': apiKey
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: base64Data } }
-        ]
-      }],
-      generationConfig: {
-        // Low temperature for deterministic, structured output
-        temperature: GEMINI_TEMPERATURE,
-        // 2048 tokens is sufficient for typical invoice product lists
-        maxOutputTokens: GEMINI_MAX_TOKENS
-      }
-    })
-  });
+  // Use header-based auth (recommended by Google; Gemini API allows x-goog-api-key in CORS)
+  let response;
+  try {
+    response = await fetch(GEMINI_API_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType, data: base64Data } }
+          ]
+        }],
+        generationConfig: {
+          // Low temperature for deterministic, structured output
+          temperature: GEMINI_TEMPERATURE,
+          // 2048 tokens is sufficient for typical invoice product lists
+          maxOutputTokens: GEMINI_MAX_TOKENS
+        }
+      })
+    });
+  } catch (fetchErr) {
+    console.error('Gemini network error:', fetchErr);
+    const err = new Error('Falha de rede ao conectar com a API Gemini.');
+    err.code = 'GEMINI_NETWORK_ERROR';
+    throw err;
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    const err  = new Error('Erro na API Gemini: ' + response.status + ' ' + response.statusText + (body ? ' – ' + body : ''));
-    err.code   = response.status === 400 ? 'GEMINI_BAD_KEY' : 'GEMINI_API_ERROR';
+    console.error('Gemini API error response:', response.status, body);
+    let errCode;
+    if (response.status === 400) {
+      errCode = 'GEMINI_BAD_KEY';
+    } else if (response.status === 401 || response.status === 403) {
+      errCode = 'GEMINI_FORBIDDEN';
+    } else if (response.status === 404) {
+      errCode = 'GEMINI_NOT_FOUND';
+    } else if (response.status === 429) {
+      errCode = 'GEMINI_QUOTA';
+    } else {
+      errCode = 'GEMINI_API_ERROR';
+    }
+    const err  = new Error('Erro na API Gemini: ' + response.status + ' ' + response.statusText);
+    err.code   = errCode;
     err.status = response.status;
     throw err;
   }
@@ -1161,10 +1182,18 @@ async function processNotaFoto(event) {
       message = '❌ Chave da API não configurada. Informe sua chave Gemini acima.';
     } else if (err.code === 'GEMINI_BAD_KEY') {
       message = '❌ Chave da API inválida ou expirada. Verifique e salve novamente.';
+    } else if (err.code === 'GEMINI_FORBIDDEN') {
+      message = '❌ Acesso negado (erro ' + (err.status || 403) + '). Confirme que o Gemini API está habilitado na sua conta Google e que a chave está correta.';
+    } else if (err.code === 'GEMINI_NOT_FOUND') {
+      message = '❌ Modelo de IA não encontrado (erro 404). Tente novamente mais tarde ou atualize o app.';
+    } else if (err.code === 'GEMINI_QUOTA') {
+      message = '❌ Cota da API excedida. Aguarde um momento e tente novamente.';
+    } else if (err.code === 'GEMINI_NETWORK_ERROR') {
+      message = '❌ Falha de conexão. Verifique sua internet e tente novamente.';
     } else if (err.code === 'GEMINI_PARSE_ERROR') {
       message = '❌ A IA retornou um formato inesperado. Tente novamente.';
     } else if (err.code === 'GEMINI_API_ERROR') {
-      message = '❌ Erro na API Gemini. Verifique sua conexão e tente novamente.';
+      message = '❌ Erro na API Gemini (código ' + (err.status || '?') + '). Verifique sua conexão e tente novamente.';
     }
     statusEl.textContent       = message;
     progressWrap.style.display = 'none';
