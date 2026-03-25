@@ -1112,6 +1112,10 @@ async function extractItemsWithGemini(file) {
     const err  = new Error('Erro na API Gemini: ' + response.status + ' ' + response.statusText);
     err.code   = errCode;
     err.status = response.status;
+    if (errCode === 'GEMINI_QUOTA') {
+      const retryAfterHeader = response.headers.get('Retry-After');
+      err.retryAfter = Math.max(1, parseInt(retryAfterHeader, 10) || 30);
+    }
     throw err;
   }
 
@@ -1138,6 +1142,14 @@ async function extractItemsWithGemini(file) {
   }
 
   return items;
+}
+
+/** Shows a countdown in statusEl while waiting `seconds` seconds. */
+async function _waitWithCountdown(seconds, statusEl) {
+  for (let i = seconds; i > 0; i--) {
+    statusEl.textContent = '⏳ Cota excedida. Tentando novamente em ' + i + 's…';
+    await new Promise(function(r) { setTimeout(r, 1000); });
+  }
 }
 
 /**
@@ -1168,7 +1180,25 @@ async function processNotaFoto(event) {
     progressBar.style.width = '40%';
     statusEl.textContent    = '🤖 Analisando imagem com Gemini…';
 
-    const items = await extractItemsWithGemini(file);
+    let items;
+    let quotaRetries = 0;
+    const MAX_QUOTA_RETRIES = 1;
+    while (true) {
+      try {
+        items = await extractItemsWithGemini(file);
+        break;
+      } catch (apiErr) {
+        if (apiErr.code === 'GEMINI_QUOTA' && quotaRetries < MAX_QUOTA_RETRIES) {
+          quotaRetries++;
+          const delay = apiErr.retryAfter || 30;
+          await _waitWithCountdown(delay, statusEl);
+          progressBar.style.width = '40%';
+          statusEl.textContent    = '🤖 Tentando novamente…';
+        } else {
+          throw apiErr;
+        }
+      }
+    }
 
     progressBar.style.width = '100%';
     statusEl.textContent    = '✅ Análise concluída! Revise os itens abaixo.';
@@ -1187,7 +1217,7 @@ async function processNotaFoto(event) {
     } else if (err.code === 'GEMINI_NOT_FOUND') {
       message = '❌ Modelo de IA não encontrado (erro 404). Tente novamente mais tarde ou atualize o app.';
     } else if (err.code === 'GEMINI_QUOTA') {
-      message = '❌ Cota da API excedida. Aguarde um momento e tente novamente.';
+      message = '❌ Cota da API excedida (limite de requisições atingido). Aguarde alguns minutos e tente novamente, ou acesse aistudio.google.com para verificar seu uso.';
     } else if (err.code === 'GEMINI_NETWORK_ERROR') {
       message = '❌ Falha de conexão. Verifique sua internet e tente novamente.';
     } else if (err.code === 'GEMINI_PARSE_ERROR') {
