@@ -527,27 +527,27 @@
   <div class="card">
     <h2>📸 Ler Nota por Foto <small style="font-size:0.65rem;color:var(--cinza);">IA</small></h2>
     <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:10px;">
-      Tire uma foto da nota de compra (consignado, romaneio, etc.). A IA (Gemini) extrairá os produtos, quantidades e preços automaticamente.
+      Tire uma foto da nota de compra (consignado, romaneio, etc.). A IA (OpenAI GPT-4o) extrairá os produtos, quantidades e preços automaticamente.
     </p>
 
-    <!-- Gemini API key config -->
-    <div id="gemini-key-section" style="margin-bottom:10px;">
+    <!-- OpenAI API key config -->
+    <div id="openai-key-section" style="margin-bottom:10px;">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <input type="password" id="gemini-api-key-input"
-               placeholder="Cole sua chave da API Gemini aqui"
+        <input type="password" id="openai-api-key-input"
+               placeholder="Cole sua chave da API OpenAI aqui"
                style="flex:1;min-width:0;"
                autocomplete="off" />
-        <button class="btn btn-secondary" onclick="saveGeminiKey()" style="white-space:nowrap;">
+        <button class="btn btn-secondary" onclick="saveOpenAiKey()" style="white-space:nowrap;">
           💾 Salvar chave
         </button>
       </div>
       <p style="font-size:0.75rem;color:var(--cinza);margin-top:4px;">
-        Obtenha grátis em
-        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener"
-           style="color:var(--dourado-1);">aistudio.google.com</a>.
+        Obtenha em
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener"
+           style="color:var(--dourado-1);">platform.openai.com</a>.
         A chave é salva só neste dispositivo.
       </p>
-      <div id="gemini-key-status" style="font-size:0.78rem;margin-top:4px;"></div>
+      <div id="openai-key-status" style="font-size:0.78rem;margin-top:4px;"></div>
     </div>
 
     <!-- hidden file input – capture="environment" opens camera on mobile -->
@@ -685,7 +685,7 @@
 /* ===================================================
    VERSION
 =================================================== */
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 
 /* ===================================================
    STORAGE
@@ -988,39 +988,40 @@ function updateStats() {
 }
 
 /* ===================================================
-   NOTA POR FOTO – IA (Gemini Vision)
+   NOTA POR FOTO – IA (OpenAI Vision)
 =================================================== */
 let _notaPhotoUrl = null; // tracks current object URL for cleanup
 
-const GEMINI_KEY_STORAGE = 'kc_gemini_api_key';
-const GEMINI_API_BASE    = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const OPENAI_KEY_STORAGE = 'kc_openai_api_key';
+const OPENAI_API_BASE    = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_MODEL       = 'gpt-4o-mini';
 // Low temperature → more deterministic, structured JSON output from the model
-const GEMINI_TEMPERATURE = 0.1;
+const OPENAI_TEMPERATURE = 0.1;
 // 4096 tokens is ample for large invoice product lists with qty and price fields
-const GEMINI_MAX_TOKENS  = 4096;
+const OPENAI_MAX_TOKENS  = 4096;
 
-function getGeminiApiKey() {
-  return localStorage.getItem(GEMINI_KEY_STORAGE) || '';
+function getOpenAiApiKey() {
+  return localStorage.getItem(OPENAI_KEY_STORAGE) || '';
 }
 
-function _setGeminiKeyStatus(msg, color) {
-  const el = document.getElementById('gemini-key-status');
+function _setOpenAiKeyStatus(msg, color) {
+  const el = document.getElementById('openai-key-status');
   if (el) { el.textContent = msg; el.style.color = color || 'var(--cinza)'; }
 }
 
-function saveGeminiKey() {
-  const inp = document.getElementById('gemini-api-key-input');
+function saveOpenAiKey() {
+  const inp = document.getElementById('openai-api-key-input');
   const key = (inp ? inp.value : '').trim();
   if (!key) {
-    localStorage.removeItem(GEMINI_KEY_STORAGE);
-    _setGeminiKeyStatus('Chave removida.', 'var(--cinza)');
-    if (inp) { inp.value = ''; inp.placeholder = 'Cole sua chave da API Gemini aqui'; }
+    localStorage.removeItem(OPENAI_KEY_STORAGE);
+    _setOpenAiKeyStatus('Chave removida.', 'var(--cinza)');
+    if (inp) { inp.value = ''; inp.placeholder = 'Cole sua chave da API OpenAI aqui'; }
     return;
   }
-  localStorage.setItem(GEMINI_KEY_STORAGE, key);
+  localStorage.setItem(OPENAI_KEY_STORAGE, key);
   if (inp) { inp.value = ''; inp.placeholder = '🔑 Chave salva (●●●●●●●●)'; }
-  _setGeminiKeyStatus('✅ Chave salva com sucesso!', 'var(--verde)');
-  showToast('✅ Chave da API Gemini salva!');
+  _setOpenAiKeyStatus('✅ Chave salva com sucesso!', 'var(--verde)');
+  showToast('✅ Chave da API OpenAI salva!');
 }
 
 /** Converts a File to a base64 data string (without the data-URL prefix). */
@@ -1042,13 +1043,13 @@ function _fileToBase64(file) {
 }
 
 /**
- * Sends the photo to Google Gemini and returns an array of {code, name} objects.
+ * Sends the photo to OpenAI and returns an array of {code, name, qty, price} objects.
  */
-async function extractItemsWithGemini(file) {
-  const apiKey = getGeminiApiKey();
+async function extractItemsWithOpenAi(file) {
+  const apiKey = getOpenAiApiKey();
   if (!apiKey) {
-    const err = new Error('Chave da API do Gemini não configurada. Informe a chave acima.');
-    err.code = 'GEMINI_NO_KEY';
+    const err = new Error('Chave da API OpenAI não configurada. Informe a chave acima.');
+    err.code = 'OPENAI_NO_KEY';
     throw err;
   }
 
@@ -1071,56 +1072,51 @@ async function extractItemsWithGemini(file) {
     'Se não encontrar nenhum produto, retorne [].\n' +
     'Obs.: o campo "price" é extraído para conferência futura e não é salvo automaticamente no estoque.';
 
-  // Use header-based auth (recommended by Google; Gemini API allows x-goog-api-key in CORS)
   let response;
   try {
-    response = await fetch(GEMINI_API_BASE, {
+    response = await fetch(OPENAI_API_BASE, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
+        'Authorization': 'Bearer ' + apiKey
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType, data: base64Data } }
+        model: OPENAI_MODEL,
+        temperature: OPENAI_TEMPERATURE,
+        max_tokens: OPENAI_MAX_TOKENS,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: 'data:' + mimeType + ';base64,' + base64Data } }
           ]
-        }],
-        generationConfig: {
-          // Low temperature for deterministic, structured output
-          temperature: GEMINI_TEMPERATURE,
-          // 2048 tokens is sufficient for typical invoice product lists
-          maxOutputTokens: GEMINI_MAX_TOKENS
-        }
+        }]
       })
     });
   } catch (fetchErr) {
-    console.error('Gemini network error:', fetchErr);
-    const err = new Error('Falha de rede ao conectar com a API Gemini.');
-    err.code = 'GEMINI_NETWORK_ERROR';
+    console.error('OpenAI network error:', fetchErr);
+    const err = new Error('Falha de rede ao conectar com a API OpenAI.');
+    err.code = 'OPENAI_NETWORK_ERROR';
     throw err;
   }
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    console.error('Gemini API error response:', response.status, body);
+    console.error('OpenAI API error response:', response.status, body);
     let errCode;
-    if (response.status === 400) {
-      errCode = 'GEMINI_BAD_KEY';
-    } else if (response.status === 401 || response.status === 403) {
-      errCode = 'GEMINI_FORBIDDEN';
-    } else if (response.status === 404) {
-      errCode = 'GEMINI_NOT_FOUND';
+    if (response.status === 401) {
+      errCode = 'OPENAI_BAD_KEY';
+    } else if (response.status === 403) {
+      errCode = 'OPENAI_FORBIDDEN';
     } else if (response.status === 429) {
-      errCode = 'GEMINI_QUOTA';
+      errCode = 'OPENAI_QUOTA';
     } else {
-      errCode = 'GEMINI_API_ERROR';
+      errCode = 'OPENAI_API_ERROR';
     }
-    const err  = new Error('Erro na API Gemini: ' + response.status + ' ' + response.statusText);
+    const err  = new Error('Erro na API OpenAI: ' + response.status + ' ' + response.statusText);
     err.code   = errCode;
     err.status = response.status;
-    if (errCode === 'GEMINI_QUOTA') {
+    if (errCode === 'OPENAI_QUOTA') {
       const retryAfterHeader = response.headers.get('Retry-After');
       err.retryAfter = Math.max(1, parseInt(retryAfterHeader, 10) || 30);
     }
@@ -1128,9 +1124,9 @@ async function extractItemsWithGemini(file) {
   }
 
   const result = await response.json();
-  let textContent = (result?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+  let textContent = (result?.choices?.[0]?.message?.content || '').trim();
 
-  // Strip optional markdown code fences that Gemini sometimes adds
+  // Strip optional markdown code fences that the model sometimes adds
   const fenceMatch = textContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fenceMatch) textContent = fenceMatch[1].trim();
 
@@ -1139,13 +1135,13 @@ async function extractItemsWithGemini(file) {
     items = JSON.parse(textContent);
   } catch {
     const err = new Error('Não foi possível interpretar a resposta da IA. Resposta: ' + textContent.substring(0, 200));
-    err.code = 'GEMINI_PARSE_ERROR';
+    err.code = 'OPENAI_PARSE_ERROR';
     throw err;
   }
 
   if (!Array.isArray(items)) {
     const err = new Error('Resposta inesperada da IA (não é uma lista).');
-    err.code = 'GEMINI_PARSE_ERROR';
+    err.code = 'OPENAI_PARSE_ERROR';
     throw err;
   }
 
@@ -1162,7 +1158,7 @@ async function _waitWithCountdown(seconds, statusEl) {
 
 /**
  * Called when the user selects / captures a photo.
- * Uses Google Gemini Vision API to extract product info and builds the review list.
+ * Uses OpenAI Vision API to extract product info and builds the review list.
  */
 async function processNotaFoto(event) {
   const file = event.target.files[0];
@@ -1186,17 +1182,17 @@ async function processNotaFoto(event) {
 
   try {
     progressBar.style.width = '40%';
-    statusEl.textContent    = '🤖 Analisando imagem com Gemini…';
+    statusEl.textContent    = '🤖 Analisando imagem com OpenAI GPT-4o…';
 
     let items;
     let quotaRetries = 0;
     const MAX_QUOTA_RETRIES = 1;
     while (true) {
       try {
-        items = await extractItemsWithGemini(file);
+        items = await extractItemsWithOpenAi(file);
         break;
       } catch (apiErr) {
-        if (apiErr.code === 'GEMINI_QUOTA' && quotaRetries < MAX_QUOTA_RETRIES) {
+        if (apiErr.code === 'OPENAI_QUOTA' && quotaRetries < MAX_QUOTA_RETRIES) {
           quotaRetries++;
           const delay = apiErr.retryAfter || 30;
           await _waitWithCountdown(delay, statusEl);
@@ -1216,22 +1212,20 @@ async function processNotaFoto(event) {
   } catch (err) {
     console.error('Erro ao processar foto com IA:', err);
     let message = '❌ Não foi possível analisar a imagem.';
-    if (err.code === 'GEMINI_NO_KEY') {
-      message = '❌ Chave da API não configurada. Informe sua chave Gemini acima.';
-    } else if (err.code === 'GEMINI_BAD_KEY') {
+    if (err.code === 'OPENAI_NO_KEY') {
+      message = '❌ Chave da API não configurada. Informe sua chave OpenAI acima.';
+    } else if (err.code === 'OPENAI_BAD_KEY') {
       message = '❌ Chave da API inválida ou expirada. Verifique e salve novamente.';
-    } else if (err.code === 'GEMINI_FORBIDDEN') {
-      message = '❌ Acesso negado (erro ' + (err.status || 403) + '). Confirme que o Gemini API está habilitado na sua conta Google e que a chave está correta.';
-    } else if (err.code === 'GEMINI_NOT_FOUND') {
-      message = '❌ Modelo de IA não encontrado (erro 404). Tente novamente mais tarde ou atualize o app.';
-    } else if (err.code === 'GEMINI_QUOTA') {
-      message = '❌ Cota da API excedida (limite de requisições atingido). Aguarde alguns minutos e tente novamente, ou acesse aistudio.google.com para verificar seu uso.';
-    } else if (err.code === 'GEMINI_NETWORK_ERROR') {
+    } else if (err.code === 'OPENAI_FORBIDDEN') {
+      message = '❌ Acesso negado (erro ' + (err.status || 403) + '). Confirme que sua chave OpenAI está correta e tem créditos disponíveis.';
+    } else if (err.code === 'OPENAI_QUOTA') {
+      message = '❌ Limite de requisições atingido. Aguarde alguns minutos e tente novamente, ou verifique seus créditos em platform.openai.com.';
+    } else if (err.code === 'OPENAI_NETWORK_ERROR') {
       message = '❌ Falha de conexão. Verifique sua internet e tente novamente.';
-    } else if (err.code === 'GEMINI_PARSE_ERROR') {
+    } else if (err.code === 'OPENAI_PARSE_ERROR') {
       message = '❌ A IA retornou um formato inesperado. Tente novamente.';
-    } else if (err.code === 'GEMINI_API_ERROR') {
-      message = '❌ Erro na API Gemini (código ' + (err.status || '?') + '). Verifique sua conexão e tente novamente.';
+    } else if (err.code === 'OPENAI_API_ERROR') {
+      message = '❌ Erro na API OpenAI (código ' + (err.status || '?') + '). Verifique sua conexão e tente novamente.';
     }
     statusEl.textContent       = message;
     progressWrap.style.display = 'none';
@@ -1244,7 +1238,7 @@ async function processNotaFoto(event) {
 
 /**
  * Populates the "Itens da Nota" card from AI-detected items.
- * @param {Array<{code:string, name:string}>} items – items returned by Gemini
+ * @param {Array<{code:string, name:string}>} items – items returned by the AI
  */
 function _buildNotaItensList(items) {
   const listEl = document.getElementById('nota-itens-list');
@@ -1620,13 +1614,13 @@ updateStats();
   if (badge) badge.textContent = 'v' + APP_VERSION;
 })();
 
-// Show saved Gemini key status on load
+// Show saved OpenAI key status on load
 (function () {
-  var key = getGeminiApiKey();
+  var key = getOpenAiApiKey();
   if (key) {
-    var inp = document.getElementById('gemini-api-key-input');
+    var inp = document.getElementById('openai-api-key-input');
     if (inp) inp.placeholder = '🔑 Chave salva (●●●●●●●●)';
-    _setGeminiKeyStatus('✅ Chave da API configurada.', 'var(--verde)');
+    _setOpenAiKeyStatus('✅ Chave da API configurada.', 'var(--verde)');
   }
 })();
 
