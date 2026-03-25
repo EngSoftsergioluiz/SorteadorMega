@@ -527,7 +527,7 @@
   <div class="card">
     <h2>📸 Ler Nota por Foto <small style="font-size:0.65rem;color:var(--cinza);">IA</small></h2>
     <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:10px;">
-      Tire uma foto da nota de compra. A IA (Gemini) extrairá os produtos automaticamente.
+      Tire uma foto da nota de compra (consignado, romaneio, etc.). A IA (Gemini) extrairá os produtos, quantidades e preços automaticamente.
     </p>
 
     <!-- Gemini API key config -->
@@ -685,7 +685,7 @@
 /* ===================================================
    VERSION
 =================================================== */
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.0';
 
 /* ===================================================
    STORAGE
@@ -996,8 +996,8 @@ const GEMINI_KEY_STORAGE = 'kc_gemini_api_key';
 const GEMINI_API_BASE    = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 // Low temperature → more deterministic, structured JSON output from the model
 const GEMINI_TEMPERATURE = 0.1;
-// 2048 tokens is ample for a typical invoice product list response
-const GEMINI_MAX_TOKENS  = 2048;
+// 4096 tokens is ample for large invoice product lists with qty and price fields
+const GEMINI_MAX_TOKENS  = 4096;
 
 function getGeminiApiKey() {
   return localStorage.getItem(GEMINI_KEY_STORAGE) || '';
@@ -1056,12 +1056,20 @@ async function extractItemsWithGemini(file) {
   const mimeType   = file.type || 'image/jpeg';
 
   const prompt =
-    'Esta é uma foto de uma nota fiscal ou etiqueta de produtos de beleza/cosméticos.\n' +
-    'Identifique todos os produtos visíveis: seus códigos (código de barras, referência numérica ou alfanumérica) e nomes.\n' +
+    'Esta é uma foto de uma nota fiscal, romaneio ou pedido de mercadorias.\n' +
+    'Identifique todos os produtos listados: código de referência (se houver), nome, quantidade e preço unitário.\n' +
     'Retorne APENAS um JSON válido no formato abaixo, sem nenhum texto antes ou depois:\n' +
-    '[{"code":"codigo_aqui","name":"nome_do_produto_aqui"}]\n' +
-    'Se um produto não tiver código visível, use "" no campo code.\n' +
-    'Se não encontrar nenhum produto, retorne [].';
+    '[{"code":"","name":"nome_do_produto","qty":1,"price":"0.00"}]\n' +
+    'Instruções:\n' +
+    '- "code": código ou referência do produto (ex.: "04031" ou "01774"); use "" se não houver.\n' +
+    '- "name": nome completo do produto (ex.: "TANGA MARLI" ou "CUECA BOR TALA").\n' +
+    '- "qty": quantidade como número inteiro (ex.: 1 ou 2); use 1 se não estiver claro.\n' +
+    '- "price": preço unitário como string com ponto decimal (ex.: "29.90"); use "0.00" se não visível.\n' +
+    'Formatos comuns nesta nota:\n' +
+    '- Formato consignado: nome do produto em uma linha, depois quantidade + unidade + preço unitário + total na linha seguinte.\n' +
+    '- Formato romaneio: código-nome e valor na mesma linha.\n' +
+    'Se não encontrar nenhum produto, retorne [].\n' +
+    'Obs.: o campo "price" é extraído para conferência futura e não é salvo automaticamente no estoque.';
 
   // Use header-based auth (recommended by Google; Gemini API allows x-goog-api-key in CORS)
   let response;
@@ -1252,7 +1260,7 @@ function _buildNotaItensList(items) {
       _appendNotaItemRow(listEl, {
         code,
         name: existing ? existing.name : (item.name || ''),
-        qty:  1
+        qty:  (function(q) { const n = parseInt(q, 10); return (n > 0) ? n : 1; })(item.qty)
       });
     });
   } else {
