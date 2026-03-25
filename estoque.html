@@ -430,6 +430,7 @@
 <header class="app-header">
   <a href="index.html" class="btn-back" title="Voltar ao site">←</a>
   <h1>📦 Controle de Estoque</h1>
+  <span id="app-version-badge" style="font-size:0.65rem;color:var(--cinza);white-space:nowrap;"></span>
 </header>
 
 <!-- ===== Telas ===== -->
@@ -524,10 +525,31 @@
 
   <!-- CARD: Ler Nota por Foto (novo) -->
   <div class="card">
-    <h2>📸 Ler Nota por Foto</h2>
+    <h2>📸 Ler Nota por Foto <small style="font-size:0.65rem;color:var(--cinza);">IA</small></h2>
     <p style="font-size:0.85rem;color:var(--cinza);margin-bottom:10px;">
-      Tire uma foto da nota de compra. O sistema lerá os códigos automaticamente para cadastro no estoque.
+      Tire uma foto da nota de compra. A IA (Gemini) extrairá os produtos automaticamente.
     </p>
+
+    <!-- Gemini API key config -->
+    <div id="gemini-key-section" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <input type="password" id="gemini-api-key-input"
+               placeholder="Cole sua chave da API Gemini aqui"
+               style="flex:1;min-width:0;"
+               autocomplete="off" />
+        <button class="btn btn-secondary" onclick="saveGeminiKey()" style="white-space:nowrap;">
+          💾 Salvar chave
+        </button>
+      </div>
+      <p style="font-size:0.75rem;color:var(--cinza);margin-top:4px;">
+        Obtenha grátis em
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener"
+           style="color:var(--dourado-1);">aistudio.google.com</a>.
+        A chave é salva só neste dispositivo.
+      </p>
+      <div id="gemini-key-status" style="font-size:0.78rem;margin-top:4px;"></div>
+    </div>
+
     <!-- hidden file input – capture="environment" opens camera on mobile -->
     <input type="file" id="nota-foto-input" accept="image/*" capture="environment"
            aria-label="Selecionar foto da nota fiscal"
@@ -660,6 +682,11 @@
 <div id="toast"></div>
 
 <script>
+/* ===================================================
+   VERSION
+=================================================== */
+const APP_VERSION = '2.1.0';
+
 /* ===================================================
    STORAGE
 =================================================== */
@@ -961,276 +988,199 @@ function updateStats() {
 }
 
 /* ===================================================
-   NOTA POR FOTO
+   NOTA POR FOTO – IA (Gemini Vision)
 =================================================== */
 let _notaPhotoUrl = null; // tracks current object URL for cleanup
-const OCR_ERROR_CODES = Object.freeze({
-  LOAD: 'OCR_LOAD',
-  TIMEOUT: 'OCR_TIMEOUT',
-  EMPTY_TEXT: 'OCR_EMPTY_TEXT'
-});
-const OCR_SCRIPT_LOAD_TIMEOUT_MS = 15000;
+
+const GEMINI_KEY_STORAGE = 'kc_gemini_api_key';
+const GEMINI_API_URL     = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+function getGeminiApiKey() {
+  return localStorage.getItem(GEMINI_KEY_STORAGE) || '';
+}
+
+function _setGeminiKeyStatus(msg, color) {
+  const el = document.getElementById('gemini-key-status');
+  if (el) { el.textContent = msg; el.style.color = color || 'var(--cinza)'; }
+}
+
+function saveGeminiKey() {
+  const inp = document.getElementById('gemini-api-key-input');
+  const key = (inp ? inp.value : '').trim();
+  if (!key) {
+    localStorage.removeItem(GEMINI_KEY_STORAGE);
+    _setGeminiKeyStatus('Chave removida.', 'var(--cinza)');
+    if (inp) { inp.value = ''; inp.placeholder = 'Cole sua chave da API Gemini aqui'; }
+    return;
+  }
+  localStorage.setItem(GEMINI_KEY_STORAGE, key);
+  if (inp) { inp.value = ''; inp.placeholder = '🔑 Chave salva (●●●●●●●●)'; }
+  _setGeminiKeyStatus('✅ Chave salva com sucesso!', 'var(--verde)');
+  showToast('✅ Chave da API Gemini salva!');
+}
+
+/** Converts a File to a base64 data string (without the data-URL prefix). */
+function _fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 /**
- * Lazily injects a <script> tag and resolves when it loads.
- * Uses strict src equality check to avoid CSS-selector injection issues.
+ * Sends the photo to Google Gemini and returns an array of {code, name} objects.
  */
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const existing = Array.from(document.querySelectorAll('script'))
-                          .find(s => s.src === src);
-    if (existing) { resolve(); return; }
-    const s = document.createElement('script');
-    let settled = false;
-    const done = (fn, err) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeoutId);
-      s.onload = null;
-      s.onerror = null;
-      fn(err);
-    };
-    s.src = src;
-    s.crossOrigin = 'anonymous';
-    const timeoutId = setTimeout(() => {
-      const err = new Error('Tempo esgotado ao carregar: ' + src);
-      err.code = OCR_ERROR_CODES.TIMEOUT;
-      if (s.parentNode) s.parentNode.removeChild(s);
-      done(reject, err);
-    }, OCR_SCRIPT_LOAD_TIMEOUT_MS);
-    s.onload = () => done(resolve);
-    s.onerror = () => {
-      const err = new Error('Falha ao carregar: ' + src);
-      err.code = OCR_ERROR_CODES.LOAD;
-      done(reject, err);
-    };
-    document.head.appendChild(s);
-  });
-}
-
-const OCR_SCRIPT_SOURCES = [
-  'https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js',
-  'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js',
-];
-
-async function ensureTesseractLoaded() {
-  if (typeof Tesseract !== 'undefined') return;
-  let lastErr = null;
-  for (const src of OCR_SCRIPT_SOURCES) {
-    try {
-      await loadScript(src);
-      if (typeof Tesseract !== 'undefined') return;
-    } catch (err) {
-      console.warn('Falha ao carregar OCR em', src, '[code:', err.code, ']:', err);
-      lastErr = err;
-    }
+async function extractItemsWithGemini(file) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    const err = new Error('Chave da API do Gemini não configurada. Informe a chave acima.');
+    err.code = 'GEMINI_NO_KEY';
+    throw err;
   }
-  if (lastErr) throw lastErr;
-  const err = new Error('Não foi possível carregar o OCR. Verifique sua conexão e tente novamente.');
-  err.code = OCR_ERROR_CODES.LOAD;
-  throw err;
-}
 
-async function createNotaOcrWorker(logger) {
-  // Uses por+eng to improve recognition on mixed notes (Portuguese text + alphanumeric refs)
-  // in both flows below (preferred API and compatibility fallback).
-  // Preferred flow for current versions (language initialized at creation)
+  const base64Data = await _fileToBase64(file);
+  const mimeType   = file.type || 'image/jpeg';
+
+  const prompt =
+    'Esta é uma foto de uma nota fiscal ou etiqueta de produtos de beleza/cosméticos.\n' +
+    'Identifique todos os produtos visíveis: seus códigos (código de barras, referência numérica ou alfanumérica) e nomes.\n' +
+    'Retorne APENAS um JSON válido no formato abaixo, sem nenhum texto antes ou depois:\n' +
+    '[{"code":"codigo_aqui","name":"nome_do_produto_aqui"}]\n' +
+    'Se um produto não tiver código visível, use "" no campo code.\n' +
+    'Se não encontrar nenhum produto, retorne [].';
+
+  const response = await fetch(GEMINI_API_URL + '?key=' + encodeURIComponent(apiKey), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: base64Data } }
+        ]
+      }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+    })
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    const err  = new Error('Erro na API Gemini: ' + response.status + ' ' + response.statusText + (body ? ' – ' + body : ''));
+    err.code   = response.status === 400 ? 'GEMINI_BAD_KEY' : 'GEMINI_API_ERROR';
+    err.status = response.status;
+    throw err;
+  }
+
+  const result = await response.json();
+  let textContent = (result?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+
+  // Strip optional markdown code fences that Gemini sometimes adds
+  const fenceMatch = textContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fenceMatch) textContent = fenceMatch[1].trim();
+
+  let items;
   try {
-    // Second argument = OEM mode (1 = LSTM only), same behavior used previously.
-    return await Tesseract.createWorker('por+eng', 1, { logger });
-  } catch (err) {
-    console.debug('OCR worker fallback (API compatibility):', err);
-    // Compatibility flow for older versions (manual lifecycle)
-    const worker = await Tesseract.createWorker({ logger });
-    if (typeof worker.load === 'function') {
-      await worker.load();
-    }
-    if (typeof worker.loadLanguage === 'function') {
-      await worker.loadLanguage('por+eng');
-    }
-    if (typeof worker.initialize === 'function') {
-      await worker.initialize('por+eng');
-    }
-    return worker;
+    items = JSON.parse(textContent);
+  } catch {
+    const err = new Error('Não foi possível interpretar a resposta da IA. Resposta: ' + textContent.substring(0, 200));
+    err.code = 'GEMINI_PARSE_ERROR';
+    throw err;
   }
-}
 
-async function prepareNotaImageForOcr(file, imageUrl) {
-  const OCR_MAX_IMAGE_SIDE = 2200;
-  const OCR_IMAGE_PREP_TIMEOUT_MS = 10000;
-  return new Promise(resolve => {
-    let done = false;
-    const finish = value => {
-      if (done) return;
-      done = true;
-      resolve(value);
-    };
-    const timeoutId = setTimeout(() => finish(file), OCR_IMAGE_PREP_TIMEOUT_MS);
+  if (!Array.isArray(items)) {
+    const err = new Error('Resposta inesperada da IA (não é uma lista).');
+    err.code = 'GEMINI_PARSE_ERROR';
+    throw err;
+  }
 
-    const img = new Image();
-    img.onload = () => {
-      clearTimeout(timeoutId);
-      const width = img.naturalWidth || 0;
-      const height = img.naturalHeight || 0;
-      const longSide = Math.max(width, height);
-      if (longSide <= 0) {
-        finish(file);
-        return;
-      }
-      const scale = longSide > OCR_MAX_IMAGE_SIDE ? (OCR_MAX_IMAGE_SIDE / longSide) : 1;
-      if (scale >= 1) {
-        finish(file);
-        return;
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(width * scale));
-      canvas.height = Math.max(1, Math.round(height * scale));
-
-      const ctx = canvas.getContext('2d', { alpha: false });
-      if (!ctx) {
-        finish(file);
-        return;
-      }
-
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      finish(canvas);
-    };
-    img.onerror = () => {
-      clearTimeout(timeoutId);
-      finish(file);
-    };
-    img.src = imageUrl;
-  });
+  return items;
 }
 
 /**
  * Called when the user selects / captures a photo.
- * Runs OCR via Tesseract.js (lazy-loaded) and builds the review list.
+ * Uses Google Gemini Vision API to extract product info and builds the review list.
  */
 async function processNotaFoto(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  // Revoke previous object URL to free memory
   if (_notaPhotoUrl) { URL.revokeObjectURL(_notaPhotoUrl); }
   _notaPhotoUrl = URL.createObjectURL(file);
 
-  // Reset UI
-  const previewEl      = document.getElementById('nota-foto-preview');
-  const fotoArea       = document.getElementById('nota-foto-area');
-  const statusEl       = document.getElementById('nota-ocr-status');
-  const progressWrap   = document.getElementById('nota-ocr-progress-wrap');
-  const progressBar    = document.getElementById('nota-ocr-progress-bar');
+  const previewEl    = document.getElementById('nota-foto-preview');
+  const fotoArea     = document.getElementById('nota-foto-area');
+  const statusEl     = document.getElementById('nota-ocr-status');
+  const progressWrap = document.getElementById('nota-ocr-progress-wrap');
+  const progressBar  = document.getElementById('nota-ocr-progress-bar');
 
-  previewEl.src = _notaPhotoUrl;
-  fotoArea.style.display      = 'block';
-  progressWrap.style.display  = 'block';
-  progressBar.style.width     = '0%';
-  statusEl.textContent        = 'Aguardando…';
+  previewEl.src              = _notaPhotoUrl;
+  fotoArea.style.display     = 'block';
+  progressWrap.style.display = 'block';
+  progressBar.style.width    = '10%';
+  statusEl.textContent       = '🤖 Enviando foto para a IA…';
   document.getElementById('nota-itens-card').style.display = 'none';
 
   try {
-    statusEl.textContent = 'Carregando módulo OCR…';
+    progressBar.style.width = '40%';
+    statusEl.textContent    = '🤖 Analisando imagem com Gemini…';
 
-    await ensureTesseractLoaded();
+    const items = await extractItemsWithGemini(file);
 
-    statusEl.textContent = 'Preparando foto…';
-    const ocrSource = await prepareNotaImageForOcr(file, _notaPhotoUrl);
+    progressBar.style.width = '100%';
+    statusEl.textContent    = '✅ Análise concluída! Revise os itens abaixo.';
 
-    statusEl.textContent = 'Iniciando leitura de texto…';
-
-    const worker = await createNotaOcrWorker(m => {
-      if (m.status === 'recognizing text') {
-        const pct = Math.round(m.progress * 100);
-        progressBar.style.width = pct + '%';
-        statusEl.textContent = `Lendo texto: ${pct}%`;
-      } else if (m.status === 'loading tesseract core') {
-        statusEl.textContent = 'Carregando OCR…';
-      } else if (m.status === 'loading language traineddata') {
-        statusEl.textContent = 'Baixando dados do idioma… (pode demorar)';
-      } else if (m.status === 'initializing api') {
-        statusEl.textContent = 'Preparando…';
-      }
-    });
-
-    try {
-      const { data: { text } } = await worker.recognize(ocrSource);
-      const normalizedText = (text || '').trim();
-      if (!normalizedText) {
-        const err = new Error('OCR retornou texto vazio ou apenas espaços em branco');
-        err.code = OCR_ERROR_CODES.EMPTY_TEXT;
-        throw err;
-      }
-
-      progressBar.style.width  = '100%';
-      statusEl.textContent     = '✅ Texto extraído! Revise os itens abaixo.';
-
-      // Extract unique barcode-like sequences (7+ consecutive digits)
-      const codes = [...new Set(normalizedText.match(/\b\d{7,}\b/g) || [])];
-
-      _buildNotaItensList(codes, normalizedText);
-    } finally {
-      await worker.terminate();
-    }
+    _buildNotaItensList(items);
 
   } catch (err) {
-    console.error('Erro ao processar foto da nota:', err);
-    let message = '❌ Não foi possível ler o texto da imagem.';
-    if (err.code === OCR_ERROR_CODES.LOAD) {
-      message = '❌ Não foi possível carregar o OCR. Verifique sua internet e tente novamente.';
-    } else if (err.code === OCR_ERROR_CODES.TIMEOUT) {
-      message = '❌ O carregamento do OCR demorou muito. Verifique sua internet e tente novamente.';
-    } else if (err.code === OCR_ERROR_CODES.EMPTY_TEXT) {
-      message = '❌ Não encontramos texto legível. Tente uma foto mais próxima e sem reflexo.';
+    console.error('Erro ao processar foto com IA:', err);
+    let message = '❌ Não foi possível analisar a imagem.';
+    if (err.code === 'GEMINI_NO_KEY') {
+      message = '❌ Chave da API não configurada. Informe sua chave Gemini acima.';
+    } else if (err.code === 'GEMINI_BAD_KEY') {
+      message = '❌ Chave da API inválida ou expirada. Verifique e salve novamente.';
+    } else if (err.code === 'GEMINI_PARSE_ERROR') {
+      message = '❌ A IA retornou um formato inesperado. Tente novamente.';
+    } else if (err.code === 'GEMINI_API_ERROR') {
+      message = '❌ Erro na API Gemini. Verifique sua conexão e tente novamente.';
     }
     statusEl.textContent       = message;
     progressWrap.style.display = 'none';
-    showToast('Erro no OCR da foto. Tente novamente ou adicione manualmente.');
-    _buildNotaItensList([], '');
+    showToast('Erro ao analisar a foto. Tente novamente ou adicione manualmente.');
+    _buildNotaItensList([]);
   } finally {
-    // Always reset so the user can re-select the same file if needed
     event.target.value = '';
   }
 }
+
 /**
- * Populates the "Itens da Nota" card from OCR-detected codes.
- * @param {string[]} codes  – barcode strings found by OCR
- * @param {string}   ocrText – full OCR text (for fallback reference display)
+ * Populates the "Itens da Nota" card from AI-detected items.
+ * @param {Array<{code:string, name:string}>} items – items returned by Gemini
  */
-function _buildNotaItensList(codes, ocrText) {
-  const listEl  = document.getElementById('nota-itens-list');
-  const cardEl  = document.getElementById('nota-itens-card');
-  const data    = loadData();
+function _buildNotaItensList(items) {
+  const listEl = document.getElementById('nota-itens-list');
+  const cardEl = document.getElementById('nota-itens-card');
+  const data   = loadData();
 
   listEl.innerHTML = '';
 
-  if (codes.length > 0) {
-    codes.forEach(code => {
-      const existing = data[code];
+  if (items.length > 0) {
+    items.forEach(item => {
+      const code     = (item.code || '').trim();
+      const existing = code ? data[code] : null;
       _appendNotaItemRow(listEl, {
         code,
-        name: existing ? existing.name : '',
+        name: existing ? existing.name : (item.name || ''),
         qty:  1
       });
     });
   } else {
-    // No barcodes found – show placeholder + optional OCR text reference
     const msgEl = document.createElement('p');
     msgEl.style.cssText = 'color:var(--cinza);font-size:0.85rem;margin-bottom:8px;';
     msgEl.id = 'nota-no-codes-msg';
-    msgEl.textContent = 'Nenhum código detectado. Adicione manualmente:';
+    msgEl.textContent = 'Nenhum item detectado pela IA. Adicione manualmente:';
     listEl.appendChild(msgEl);
-
-    if (ocrText.trim()) {
-      const refWrap = document.createElement('div');
-      refWrap.style.marginTop = '10px';
-      refWrap.innerHTML =
-        '<p style="font-size:0.82rem;color:var(--cinza);margin-bottom:4px;">Texto detectado (referência):</p>' +
-        '<div class="nota-ref-text">' + escHtml(ocrText.trim()) + '</div>';
-      listEl.appendChild(refWrap);
-    }
   }
 
   cardEl.style.display = 'block';
@@ -1575,6 +1525,22 @@ function checkPassword() {
    INIT
 =================================================== */
 updateStats();
+
+// Show version badge in header
+(function () {
+  var badge = document.getElementById('app-version-badge');
+  if (badge) badge.textContent = 'v' + APP_VERSION;
+})();
+
+// Show saved Gemini key status on load
+(function () {
+  var key = getGeminiApiKey();
+  if (key) {
+    var inp = document.getElementById('gemini-api-key-input');
+    if (inp) inp.placeholder = '🔑 Chave salva (●●●●●●●●)';
+    _setGeminiKeyStatus('✅ Chave da API configurada.', 'var(--verde)');
+  }
+})();
 
 // Register service worker
 if ('serviceWorker' in navigator) {
