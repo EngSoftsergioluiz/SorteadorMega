@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="NEXT_PUBLIC_GOOGLE_CLIENT_ID" content="513471007833-6ep027onj51h34agr62lbkj8730goacg.apps.googleusercontent.com" />
   <title>Studio Kellen Cristina</title>
 
   <!-- Tailwind CSS CDN -->
@@ -683,6 +684,9 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    const cid = document.querySelector('meta[name="NEXT_PUBLIC_GOOGLE_CLIENT_ID"]')?.content?.trim();
+    if (cid) localStorage.setItem('NEXT_PUBLIC_GOOGLE_CLIENT_ID', cid);
+
     const navLinks = document.querySelectorAll('.nav-link');
     const contentSections = document.querySelectorAll('.content-section');
     const initialContent = document.getElementById('initial-content');

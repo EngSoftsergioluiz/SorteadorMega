@@ -50,7 +50,12 @@
     };
 
     // ── Google Calendar OAuth ────────────────────────────────────────────────
-    const GOOGLE_CLIENT_ID = "513471007833-6ep027onj51h34agr62lbkj8730goacg.apps.googleusercontent.com";
+    const process = {
+      env: {
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: localStorage.getItem("NEXT_PUBLIC_GOOGLE_CLIENT_ID") || ""
+      }
+    };
+    const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     const GOOGLE_SCOPES    = "https://www.googleapis.com/auth/calendar";
 
     // ── Services — Kellen Cristina Beauty Studio (catálogo real) ──────────────
@@ -532,6 +537,10 @@ Deseja agendar? Digite *1* para começar! 💕`;
       }
 
       function connectGoogle() {
+        if (!GOOGLE_CLIENT_ID) {
+          notify("⚠️ Configuração do Google indisponível. Recarregue a página e tente novamente.", "error");
+          return;
+        }
         if (!window.google?.accounts?.oauth2) {
           notify("⚠️ O serviço de autenticação do Google não está disponível. Tente recarregar a página.", "error");
           return;
