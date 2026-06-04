@@ -47,9 +47,11 @@ export default async function handler(req, res) {
 
     const tokenData = await tokenRes.json();
 
-    if (!tokenData.access_token) {
-      return res.status(401).json({ error: "Falha ao obter token: " + (tokenData.error_description || tokenData.error) });
-    }
+if (!tokenData.access_token) {
+  return res.status(401).json({
+    googleResponse: tokenData
+  });
+}
 
     // Criar evento no Google Calendar
     const calRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
