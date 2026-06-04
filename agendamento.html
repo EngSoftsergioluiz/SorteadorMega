@@ -29,6 +29,16 @@
 <body>
   <div id="root"></div>
 
+  <script>
+    window.process = window.process || {};
+    window.process.env = window.process.env || {};
+    if (!window.process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+      window.process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID =
+        localStorage.getItem("NEXT_PUBLIC_GOOGLE_CLIENT_ID") ||
+        "513471007833-6ep027onj51h34agr62lbkj8730goacg.apps.googleusercontent.com";
+    }
+  </script>
+
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
@@ -50,7 +60,7 @@
     };
 
     // ── Google Calendar OAuth ────────────────────────────────────────────────
-    const GOOGLE_CLIENT_ID = "513471007833-6ep027onj51h34agr62lbkj8730goacg.apps.googleusercontent.com";
+    const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     const GOOGLE_SCOPES    = "https://www.googleapis.com/auth/calendar";
 
     // ── Services — Kellen Cristina Beauty Studio (catálogo real) ──────────────
