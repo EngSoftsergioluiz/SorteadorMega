@@ -683,15 +683,10 @@
   </footer>
 
 <script>
-  (function() {
-    const cid = document.querySelector('meta[name="NEXT_PUBLIC_GOOGLE_CLIENT_ID"]')?.content?.trim();
-    if (!cid) return;
-    localStorage.setItem("NEXT_PUBLIC_GOOGLE_CLIENT_ID", cid);
-  })();
-</script>
-
-<script>
   document.addEventListener('DOMContentLoaded', function() {
+    const cid = document.querySelector('meta[name="NEXT_PUBLIC_GOOGLE_CLIENT_ID"]')?.content?.trim();
+    if (cid) localStorage.setItem('NEXT_PUBLIC_GOOGLE_CLIENT_ID', cid);
+
     const navLinks = document.querySelectorAll('.nav-link');
     const contentSections = document.querySelectorAll('.content-section');
     const initialContent = document.getElementById('initial-content');
