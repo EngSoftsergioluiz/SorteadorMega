@@ -279,9 +279,6 @@
     }
 
     #initial-content {
-      display: flex;
-      justify-content: center;
-      align-items: center;
       min-height: calc(100dvh - 150px);
       padding-block: 24px 12px;
     }
@@ -354,6 +351,12 @@
     /* Ativo */
     .active {
       display: block;
+    }
+
+    #initial-content.active {
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     
     /* Menu mobile */
