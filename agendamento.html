@@ -176,7 +176,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
     }
 
     // ── Google Calendar ───────────────────────────────────────────────────────
-    async function createCalendarEvent({ client, service, slot }, token) {
+    async function createCalendarEvent({ client, service, slot }) {
       const end = new Date(slot.getTime() + service.duration * 60000);
       const event = {
         summary: `${service.emoji} ${service.name} — ${client.name}`,
@@ -186,13 +186,13 @@ Deseja agendar? Digite *1* para começar! 💕`;
         colorId: "2",
         reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 1440 }, { method: "popup", minutes: 60 }] },
       };
-      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      const r = await fetch("/api/calendar", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(event),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || `Erro ${r.status}`);
+      if (!r.ok) throw new Error(data.error?.message || data.error || `Erro ${r.status}`);
       return data;
     }
 
@@ -264,8 +264,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
       const [clientData,    setClientData]    = useState({ name: "", phone: "", birthday: "" });
       const [selService,    setSelService]    = useState(null);
       const [selSlot,       setSelSlot]       = useState(null);
-      const [googleStatus,  setGoogleStatus]  = useState("disconnected");
-      const [accessToken,   setAccessToken]   = useState(null);
+      const [googleStatus,  setGoogleStatus]  = useState("connected"); // gerenciado pelo backend /api/calendar
       const [notifications, setNotifications] = useState([]);
       const [appointments,  setAppointments]  = useState([
         { id: 1, client: { name: "Ana Lima",    phone: "(41) 99111-2222", birthday: "15/07" }, service: SERVICES[0], slot: new Date(Date.now() + 86400000),  status: "confirmed", calendarEventId: "evt_001" },
@@ -424,12 +423,12 @@ Deseja agendar? Digite *1* para começar! 💕`;
       async function finalize() {
         const appt = { id: Date.now(), client: { ...clientData }, service: selService, slot: selSlot, status: "confirmed", calendarEventId: null };
         let calMsg = "";
-        if (googleStatus === "connected" && accessToken) {
-          try { const e = await createCalendarEvent(appt, accessToken); appt.calendarEventId = e.id; calMsg = "\n📅 Evento criado no *Google Calendar*!"; }
-          catch { calMsg = "\n⚠️ Não foi possível criar no Calendar."; }
-        } else if (googleStatus === "mock") {
-          appt.calendarEventId = "mock_" + Date.now();
-          calMsg = "\n📅 Agendado no *Google Calendar* (modo demo)!";
+        try {
+          const e = await createCalendarEvent(appt);
+          appt.calendarEventId = e.id;
+          calMsg = "\n📅 Evento criado no *Google Calendar*!";
+        } catch (err) {
+          calMsg = `\n⚠️ Não foi possível criar no Calendar: ${err.message}`;
         }
         setAppointments(p => [...p, appt]);
         notify(`📅 Novo agendamento: ${clientData.name} — ${selService.name} em ${fmtDate(selSlot)}`, "booking");
@@ -440,13 +439,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
         setIsTyping(false);
       }
 
-      function connectGoogle() {
-        if (!window.google) { setGoogleStatus("mock"); notify("🟡 Modo demo ativado — agendamentos simulados.", "info"); return; }
-        window.google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CLIENT_ID, scope: GOOGLE_SCOPES,
-          callback: r => { if (r.access_token) { setAccessToken(r.access_token); setGoogleStatus("connected"); notify("✅ Google Calendar conectado!", "success"); } },
-        }).requestAccessToken();
-      }
+      function connectGoogle() { /* Conexão gerenciada pelo backend */ }
 
       function confirmAppt(id) { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "confirmed" } : a)); notify("✅ Agendamento confirmado.", "success"); }
       function cancelAppt(id)  { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a)); notify("❌ Agendamento cancelado.", "error"); }
@@ -498,11 +491,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
               </div>
             </div>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              {googleStatus === "disconnected" && (
-                <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:11 }}>📅 Google Calendar</button>
-              )}
-              {googleStatus === "connected" && <span className="lato" style={{ fontSize:11, color:"#4ade80" }}>✅ Calendar</span>}
-              {googleStatus === "mock"      && <span className="lato" style={{ fontSize:11, color:BRAND.gold }}>🟡 Demo</span>}
+              <span className="lato" style={{ fontSize:11, color:"#4ade80" }}>✅ Calendar</span>
               <button className="btn-outline" onClick={() => setView(v => v==="chat"?"dashboard":"chat")} style={{ fontSize:11 }}>
                 {view==="chat" ? "📊 Painel" : "💬 Chat"}
               </button>
@@ -736,28 +725,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
                       <span style={{ fontSize:20 }}>📅</span>
                       <div className="lato" style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.gold }}>Google Calendar</div>
                     </div>
-                    {googleStatus === "disconnected" && (
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
-                        <span className="lato" style={{ fontSize:12, color:BRAND.creamDim }}>Conecte para criar eventos automaticamente ao agendar.</span>
-                        <button className="btn-gold" onClick={connectGoogle}>Conectar</button>
-                      </div>
-                    )}
-                    {googleStatus === "connected" && (
-                      <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
-                    )}
-                    {googleStatus === "mock" && (
-                      <div>
-                        <div className="lato" style={{ fontSize:12, color:BRAND.gold, marginBottom:10 }}>🟡 Modo demo — eventos simulados</div>
-                        <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, lineHeight:1.8 }}>
-                          Para ativar de verdade:<br/>
-                          1. Acesse <strong style={{color:"#60a5fa"}}>console.cloud.google.com</strong><br/>
-                          2. Crie um projeto e ative a API Google Calendar<br/>
-                          3. Crie credenciais OAuth 2.0 (tipo Web)<br/>
-                          4. Substitua <strong style={{color:BRAND.gold}}>GOOGLE_CLIENT_ID</strong> no início do código<br/>
-                          5. Adicione seu domínio como origem autorizada
-                        </div>
-                      </div>
-                    )}
+                    <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
                   </div>
                 </div>
               )}
