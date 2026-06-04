@@ -199,8 +199,10 @@ Deseja agendar? Digite *1* para começar! 💕`;
     }
 
     function getViewportWidth() {
-      return typeof window === "undefined" ? 1280 : window.innerWidth;
+      return window.innerWidth;
     }
+
+    const ASSISTANT_FALLBACK_MESSAGE = "Posso te ajudar por aqui mesmo 💛 Digite *1* para agendar, *2* para conhecer o Clube da Escova, *3* para consultar ou *4* para cancelar.";
 
     // ── Google Calendar ───────────────────────────────────────────────────────
     async function createCalendarEvent({ client, service, slot }) {
@@ -231,7 +233,10 @@ Deseja agendar? Digite *1* para começar! 💕`;
       try {
         const r = await fetch("/api/calendar");
         if (r.status === 404) return "manual";
-        if (!r.ok) return "manual";
+        if (!r.ok) {
+          console.warn("Google Calendar status indisponível:", r.status);
+          return "manual";
+        }
         const data = await r.json().catch(() => ({}));
         return data.configured ? "connected" : "not_configured";
       } catch {
@@ -247,11 +252,11 @@ Deseja agendar? Digite *1* para começar! 💕`;
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system, messages }),
         });
-        if (!r.ok) return "Posso te ajudar por aqui mesmo 💛 Digite *1* para agendar, *2* para conhecer o Clube da Escova, *3* para consultar ou *4* para cancelar.";
+        if (!r.ok) return ASSISTANT_FALLBACK_MESSAGE;
         const d = await r.json();
-        return d.content?.[0]?.text || "Posso te ajudar por aqui mesmo 💛 Digite *1* para agendar, *2* para conhecer o Clube da Escova, *3* para consultar ou *4* para cancelar.";
+        return d.content?.[0]?.text || ASSISTANT_FALLBACK_MESSAGE;
       } catch {
-        return "Posso te ajudar por aqui mesmo 💛 Digite *1* para agendar, *2* para conhecer o Clube da Escova, *3* para consultar ou *4* para cancelar.";
+        return ASSISTANT_FALLBACK_MESSAGE;
       }
     }
 
@@ -497,10 +502,12 @@ Deseja agendar? Digite *1* para começar! 💕`;
             appt.calendarEventId = e.id;
             calMsg = "\n📅 Evento criado no *Google Calendar*!";
           } catch (err) {
-            if (err.code === "CALENDAR_NOT_CONFIGURED") setGoogleStatus("not_configured");
-            calMsg = err.code === "CALENDAR_NOT_CONFIGURED"
-              ? "\nℹ️ Agendamento salvo nesta página. A integração automática com o Google Calendar está temporariamente indisponível."
-              : `\n⚠️ Não foi possível criar no Calendar: ${err.message}`;
+            if (err.code === "CALENDAR_NOT_CONFIGURED") {
+              setGoogleStatus("not_configured");
+              calMsg = "\nℹ️ Agendamento salvo nesta página. A integração automática com o Google Calendar está temporariamente indisponível.";
+            } else {
+              calMsg = `\n⚠️ Não foi possível criar no Calendar: ${err.message}`;
+            }
           }
         } else if (googleStatus === "not_configured") {
           calMsg = "\nℹ️ Agendamento salvo nesta página. A integração automática com o Google Calendar está temporariamente indisponível.";
