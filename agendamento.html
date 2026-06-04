@@ -226,7 +226,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
       try {
         data = await r.json();
       } catch (parseErr) {
-        console.warn(`Resposta inválida do Google Calendar/API (status ${r.status}, Content-Type: ${r.headers.get("Content-Type") || "desconhecido"})`, parseErr);
+        console.warn(`Resposta inválida do Google Calendar/API (status ${r.status}, Content-Type: ${r.headers.get("Content-Type") || "não especificado"})`, parseErr);
       }
       if (!r.ok) {
         const err = new Error(data.error?.message || data.error_description || data.error || `Erro ${r.status}`);
@@ -547,7 +547,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
             } else if (response?.error === "access_denied") {
               notify("ℹ️ Conexão com Google cancelada por você.", "info");
             } else {
-              notify(`⚠️ Não foi possível concluir a conexão: ${response?.error || "erro desconhecido"}.`, "error");
+              notify(`⚠️ Não foi possível concluir a conexão: ${response?.error || "erro desconhecido"}. Tente novamente.`, "error");
             }
           },
         }).requestAccessToken({ prompt: "consent" });
