@@ -1,0 +1,734 @@
+import { useState, useEffect, useRef } from "react";
+
+// ── Brand Identity — Kellen Cristina Beauty Studio ──────────────────────
+const BRAND = {
+  navy:       "#001c33",
+  navyMid:    "#002542",
+  navyLight:  "#0a3050",
+  navyCard:   "#041828",
+  navyBorder: "#0d2d45",
+  gold:       "#dab65e",
+  goldLight:  "#f0d063",
+  goldDark:   "#a8893a",
+  goldGrad:   "linear-gradient(135deg, #f0d063 0%, #dab65e 40%, #c9a84c 70%, #a8893a 100%)",
+  goldText:   "#e8c96a",
+  cream:      "#f5ede0",
+  creamMuted: "#c4b49a",
+  creamDim:   "#7a6a55",
+};
+
+// ── Google Calendar OAuth ────────────────────────────────────────────────
+const GOOGLE_CLIENT_ID = "513471007833-6ep027onj51h34agr62lbkj8730goacg.apps.googleusercontent.com";
+const GOOGLE_SCOPES    = "https://www.googleapis.com/auth/calendar";
+
+// ── Services — Kellen Cristina Beauty Studio (catálogo real) ──────────────
+const SERVICES = [
+  // ── ESCOVA EXPRESS — AVULSO ─────────────────────────────────────────────
+  { id: "escova_curto",      name: "Escova Express — Curto",       duration: 45,  emoji: "💨", price: "R$ 45",  category: "Escova Express",   desc: "Lavagem + Escova alinhadora com shampoo profissional" },
+  { id: "escova_medio",      name: "Escova Express — Médio",       duration: 60,  emoji: "💨", price: "R$ 55",  category: "Escova Express",   desc: "Lavagem + Escova alinhadora com shampoo profissional" },
+  { id: "escova_longo",      name: "Escova Express — Longo",       duration: 75,  emoji: "💨", price: "R$ 65",  category: "Escova Express",   desc: "Lavagem + Escova alinhadora com shampoo profissional" },
+  { id: "escova_xlongo",     name: "Escova Express — Extra Longo", duration: 90,  emoji: "💨", price: "R$ 75",  category: "Escova Express",   desc: "Lavagem + Escova alinhadora com shampoo profissional" },
+
+  // ── CLUBE DA ESCOVA EXPRESS — PACOTE 4x (1x por semana) ─────────────────
+  { id: "clube4_curto",      name: "Clube Escova 4x — Curto",       duration: 45,  emoji: "🌟", price: "R$ 160", category: "Clube da Escova", desc: "Pacote 4 escovas (1x/semana). Shampoo profissional. Válido 30 dias. Não inclui babyliss ou penteados elaborados." },
+  { id: "clube4_medio",      name: "Clube Escova 4x — Médio",       duration: 60,  emoji: "🌟", price: "R$ 200", category: "Clube da Escova", desc: "Pacote 4 escovas (1x/semana). Shampoo profissional. Válido 30 dias." },
+  { id: "clube4_longo",      name: "Clube Escova 4x — Longo",       duration: 75,  emoji: "🌟", price: "R$ 240", category: "Clube da Escova", desc: "Pacote 4 escovas (1x/semana). Shampoo profissional. Válido 30 dias." },
+  { id: "clube4_xlongo",     name: "Clube Escova 4x — Extra Longo", duration: 90,  emoji: "🌟", price: "R$ 280", category: "Clube da Escova", desc: "Pacote 4 escovas (1x/semana). Shampoo profissional. Válido 30 dias." },
+
+  // ── CLUBE DA ESCOVA EXPRESS — PACOTE 8x (2x por semana) ─────────────────
+  { id: "clube8_curto",      name: "Clube Escova 8x — Curto",       duration: 45,  emoji: "💎", price: "R$ 320", category: "Clube da Escova", desc: "Pacote 8 escovas (2x/semana). Shampoo profissional. Válido 30 dias. Não inclui babyliss ou penteados elaborados." },
+  { id: "clube8_medio",      name: "Clube Escova 8x — Médio",       duration: 60,  emoji: "💎", price: "R$ 400", category: "Clube da Escova", desc: "Pacote 8 escovas (2x/semana). Shampoo profissional. Válido 30 dias." },
+  { id: "clube8_longo",      name: "Clube Escova 8x — Longo",       duration: 75,  emoji: "💎", price: "R$ 480", category: "Clube da Escova", desc: "Pacote 8 escovas (2x/semana). Shampoo profissional. Válido 30 dias." },
+  { id: "clube8_xlongo",     name: "Clube Escova 8x — Extra Longo", duration: 90,  emoji: "💎", price: "R$ 560", category: "Clube da Escova", desc: "Pacote 8 escovas (2x/semana). Shampoo profissional. Válido 30 dias." },
+
+  // ── TRATAMENTOS ADD-ON ───────────────────────────────────────────────────
+  { id: "hidrat_ozonio",     name: "Hidratação Rápida + Ozonioterapia", duration: 30, emoji: "💧", price: "+ R$ 20", category: "Tratamentos",  desc: "Adicione à sua escova e potencialize o resultado" },
+  { id: "nutricao_ozonio",   name: "Nutrição + Ozonioterapia",          duration: 30, emoji: "🌿", price: "+ R$ 25", category: "Tratamentos",  desc: "Maior nutrição e brilho com ozonioterapia capilar" },
+  { id: "reconstrucao",      name: "Reconstrução + Ozonioterapia",      duration: 40, emoji: "⚗️", price: "+ R$ 35", category: "Tratamentos",  desc: "Reconstrução profunda para fios danificados" },
+  { id: "ampola",            name: "Ampola Premium",                    duration: 20, emoji: "✨", price: "+ R$ 15", category: "Tratamentos",  desc: "Ampola de linha profissional para brilho e maciez" },
+
+  // ── PROGRESSIVAS ────────────────────────────────────────────────────────
+  { id: "prog_formol_curto", name: "Progressiva c/ Formol — Curto/Médio",  duration: 150, emoji: "💇", price: "R$ 230", category: "Progressivas", desc: "Para cabelos grossos e resistentes. Não indicada para gestantes." },
+  { id: "prog_formol_medio", name: "Progressiva c/ Formol — Médio",        duration: 180, emoji: "💇", price: "R$ 260", category: "Progressivas", desc: "Para cabelos grossos e resistentes. Não indicada para gestantes." },
+  { id: "prog_formol_longo", name: "Progressiva c/ Formol — Longo",        duration: 210, emoji: "💇", price: "R$ 280", category: "Progressivas", desc: "Para cabelos grossos e resistentes. Não indicada para gestantes." },
+  { id: "prog_formol_xlongo",name: "Progressiva c/ Formol — Muito Longo",  duration: 240, emoji: "💇", price: "R$ 300", category: "Progressivas", desc: "Para cabelos grossos e resistentes. Não indicada para gestantes." },
+
+  { id: "prog_prime_curto",  name: "Progressiva Orgânica Prime — Curto/Médio", duration: 150, emoji: "🌱", price: "R$ 250", category: "Progressivas", desc: "Fios finos a médios, alinhamento natural. Indicada para cabelos naturais." },
+  { id: "prog_prime_medio",  name: "Progressiva Orgânica Prime — Médio/Longo", duration: 180, emoji: "🌱", price: "R$ 280", category: "Progressivas", desc: "Fios finos a médios, alinhamento natural. Indicada para cabelos naturais." },
+  { id: "prog_prime_longo",  name: "Progressiva Orgânica Prime — Longo",        duration: 210, emoji: "🌱", price: "R$ 320", category: "Progressivas", desc: "Fios finos a médios, alinhamento natural. Indicada para cabelos naturais." },
+
+  { id: "prog_prox_curto",   name: "Progressiva Orgânica Pro X — Curto/Médio", duration: 180, emoji: "⭐", price: "R$ 300", category: "Progressivas", desc: "Para cabelos com química, mechas ou sensibilizados. Máxima proteção e brilho." },
+  { id: "prog_prox_medio",   name: "Progressiva Orgânica Pro X — Médio/Longo", duration: 210, emoji: "⭐", price: "R$ 330", category: "Progressivas", desc: "Para cabelos com química, mechas ou sensibilizados. Máxima proteção e brilho." },
+  { id: "prog_prox_longo",   name: "Progressiva Orgânica Pro X — Longo",        duration: 240, emoji: "⭐", price: "R$ 350", category: "Progressivas", desc: "Para cabelos com química, mechas ou sensibilizados. Máxima proteção e brilho." },
+
+  { id: "alinha_curto",      name: "Alinhamento Disciplinante — Curto/Médio", duration: 90,  emoji: "🪄", price: "R$ 150", category: "Progressivas", desc: "Reduz volume e frizz mantendo movimento natural. Sem alisamento intenso." },
+  { id: "alinha_medio",      name: "Alinhamento Disciplinante — Médio/Longo", duration: 120, emoji: "🪄", price: "R$ 180", category: "Progressivas", desc: "Reduz volume e frizz mantendo movimento natural. Sem alisamento intenso." },
+  { id: "alinha_longo",      name: "Alinhamento Disciplinante — Longo",        duration: 150, emoji: "🪄", price: "R$ 200", category: "Progressivas", desc: "Reduz volume e frizz mantendo movimento natural. Sem alisamento intenso." },
+];
+
+// Grouped for the chat service menu
+const SERVICE_CATEGORIES = [
+  { id: "escova",       label: "💨 Escova Express (avulso)",  ids: ["escova_curto","escova_medio","escova_longo","escova_xlongo"] },
+  { id: "clube",        label: "🌟 Clube da Escova",           ids: ["clube4_curto","clube4_medio","clube4_longo","clube4_xlongo","clube8_curto","clube8_medio","clube8_longo","clube8_xlongo"] },
+  { id: "tratamentos",  label: "✨ Tratamentos",                ids: ["hidrat_ozonio","nutricao_ozonio","reconstrucao","ampola"] },
+  { id: "progressivas", label: "💇 Progressivas",               ids: ["prog_formol_curto","prog_formol_medio","prog_formol_longo","prog_formol_xlongo","prog_prime_curto","prog_prime_medio","prog_prime_longo","prog_prox_curto","prog_prox_medio","prog_prox_longo","alinha_curto","alinha_medio","alinha_longo"] },
+];
+
+// ── Clube da Escova Express — texto informativo ───────────────────────────
+const CLUBE_INFO_TEXT =
+`❄️ *Clube da Escova Express* ✨
+
+Seu cabelo sempre limpo, alinhado e cheiroso — sem precisar lavar em casa nesse frio! 🤍
+
+Perfeito pra quem:
+✨ Ama banho quente sem molhar o cabelo
+✨ Tem cílios e evita água quente no rosto
+✨ Fez progressiva e quer manter o resultado
+✨ Quer praticidade na rotina
+✨ Ama estar sempre com o cabelo alinhado
+
+A lavagem é feita com *shampoo de linha profissional* e você ainda pode adicionar tratamentos com *ozonioterapia capilar* 🤍
+
+─────────────────────
+💨 *AVULSO* — Lavagem + Escova
+• Curto: R$ 45 · Médio: R$ 55 · Longo: R$ 65 · Extra Longo: R$ 75
+
+🌟 *PACOTE 4x* — 1x por semana _(válido 30 dias)_
+• Curto: R$ 160 · Médio: R$ 200 · Longo: R$ 240 · Extra Longo: R$ 280
+
+💎 *PACOTE 8x* — 2x por semana _(válido 30 dias)_
+• Curto: R$ 320 · Médio: R$ 400 · Longo: R$ 480 · Extra Longo: R$ 560
+
+─────────────────────
+➕ *Adicione tratamentos à sua escova:*
+• Hidratação Rápida + Ozonioterapia: _+R$ 20_
+• Nutrição + Ozonioterapia: _+R$ 25_
+• Reconstrução + Ozonioterapia: _+R$ 35_
+• Ampola Premium: _+R$ 15_
+
+⚠️ Todos os tratamentos incluem ozonioterapia capilar.
+Pacotes não incluem babyliss ou penteados elaborados.
+
+Deseja agendar? Digite *1* para começar! 💕`;
+
+const BUSINESS_HOURS = { start: 9, end: 19 };
+const WORKING_DAYS   = [1, 2, 3, 4, 5, 6];
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const fmtDate = d => d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+const fmtTime = d => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const fmtDT   = d => `${fmtDate(d)} às ${fmtTime(d)}`;
+
+function getNextSlots(service, count = 8) {
+  const slots = [], now = new Date(), c = new Date(now);
+  c.setMinutes(Math.ceil(c.getMinutes() / 30) * 30, 0, 0);
+  if (c.getHours() < BUSINESS_HOURS.start) c.setHours(BUSINESS_HOURS.start, 0, 0, 0);
+  while (slots.length < count) {
+    if (WORKING_DAYS.includes(c.getDay()) &&
+        c.getHours() >= BUSINESS_HOURS.start &&
+        c.getHours() + service.duration / 60 <= BUSINESS_HOURS.end)
+      slots.push(new Date(c));
+    c.setMinutes(c.getMinutes() + 30);
+    if (c.getHours() >= BUSINESS_HOURS.end) {
+      c.setDate(c.getDate() + 1);
+      c.setHours(BUSINESS_HOURS.start, 0, 0, 0);
+    }
+  }
+  return slots;
+}
+
+function isBirthday(str) {
+  if (!str) return false;
+  const today = new Date(), [d, m] = str.split("/");
+  return +d === today.getDate() && +m === today.getMonth() + 1;
+}
+
+// ── Google Calendar ───────────────────────────────────────────────────────
+async function createCalendarEvent({ client, service, slot }, token) {
+  const end = new Date(slot.getTime() + service.duration * 60000);
+  const event = {
+    summary: `${service.emoji} ${service.name} — ${client.name}`,
+    description: `👤 Cliente: ${client.name}\n📱 Telefone: ${client.phone}\n💇 Serviço: ${service.name}\n💰 Valor: ${service.price}`,
+    start: { dateTime: slot.toISOString(), timeZone: "America/Sao_Paulo" },
+    end:   { dateTime: end.toISOString(),  timeZone: "America/Sao_Paulo" },
+    colorId: "2",
+    reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 1440 }, { method: "popup", minutes: 60 }] },
+  };
+  const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(event),
+  });
+  return r.json();
+}
+
+// ── Claude AI ─────────────────────────────────────────────────────────────
+async function askClaude(messages, system) {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system, messages }),
+  });
+  const d = await r.json();
+  return d.content?.[0]?.text || "Desculpe, pode repetir?";
+}
+
+// ── Logo SVG inline (KC monogram) ─────────────────────────────────────────
+function KCLogo({ size = 48 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
+      <defs>
+        <linearGradient id="kcgold" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stopColor="#f0d063" />
+          <stop offset="50%"  stopColor="#dab65e" />
+          <stop offset="100%" stopColor="#a8893a" />
+        </linearGradient>
+        <linearGradient id="kcgold2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stopColor="#f0d063" />
+          <stop offset="100%" stopColor="#c9a84c" />
+        </linearGradient>
+      </defs>
+      {/* K */}
+      <rect x="18" y="22" width="6" height="56" fill="url(#kcgold)" rx="1"/>
+      <path d="M24 50 L50 22 L57 28 L34 50 L57 72 L50 78 Z" fill="url(#kcgold)"/>
+      {/* C as circle-arc with face silhouette */}
+      <path d="M72 30 A26 26 0 1 0 72 70" stroke="url(#kcgold2)" strokeWidth="5" fill="none" strokeLinecap="round"/>
+      {/* Subtle face */}
+      <ellipse cx="68" cy="40" rx="5" ry="6" fill="url(#kcgold2)" opacity="0.7"/>
+      <path d="M60 52 Q68 62 75 56" stroke="url(#kcgold2)" strokeWidth="3" fill="none" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+// ── KC Seal (circular) ────────────────────────────────────────────────────
+function KCSeal({ size = 36 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
+      <defs>
+        <linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f0d063"/><stop offset="100%" stopColor="#a8893a"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="46" stroke="url(#sg)" strokeWidth="2" fill="none"/>
+      <circle cx="50" cy="50" r="40" stroke="url(#sg)" strokeWidth="1" fill="none" opacity="0.5"/>
+      <text x="50" y="20" textAnchor="middle" fill="url(#sg)" fontSize="7" letterSpacing="3" fontFamily="sans-serif" fontWeight="600">KELLEN CRISTINA</text>
+      <text x="50" y="86" textAnchor="middle" fill="url(#sg)" fontSize="6" letterSpacing="2.5" fontFamily="sans-serif">BEAUTY STUDIO</text>
+      <text x="34" y="58" fill="url(#sg)" fontSize="28" fontWeight="700" fontFamily="Georgia, serif">KC</text>
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [view,          setView]          = useState("chat");
+  const [messages,      setMessages]      = useState([]);
+  const [input,         setInput]         = useState("");
+  const [isTyping,      setIsTyping]      = useState(false);
+  const [chatStep,      setChatStep]      = useState("menu");
+  const [clientData,    setClientData]    = useState({ name: "", phone: "", birthday: "" });
+  const [selService,    setSelService]    = useState(null);
+  const [selSlot,       setSelSlot]       = useState(null);
+  const [googleStatus,  setGoogleStatus]  = useState("disconnected");
+  const [accessToken,   setAccessToken]   = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [appointments,  setAppointments]  = useState([
+    { id: 1, client: { name: "Ana Lima",    phone: "(41) 99111-2222", birthday: "15/07" }, service: SERVICES[0], slot: new Date(Date.now() + 86400000),  status: "confirmed", calendarEventId: "evt_001" },
+    { id: 2, client: { name: "Bia Ferreira",phone: "(41) 98222-3333", birthday: "03/06" }, service: SERVICES[3], slot: new Date(Date.now() + 172800000), status: "pending",   calendarEventId: null },
+  ]);
+  const bottomRef = useRef(null);
+  const inputRef  = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    const bdays = appointments.filter(a => isBirthday(a.client.birthday));
+    bdays.forEach(a => notify(`🎂 Aniversário de ${a.client.name} hoje!`, "bday"));
+    triggerGreeting();
+  }, []);
+
+  function notify(text, type = "info") {
+    setNotifications(p => [{ id: Date.now() + Math.random(), text, type }, ...p].slice(0, 25));
+  }
+
+  function triggerGreeting() {
+    setTimeout(() => {
+      addBot(
+        "Olá! 🌸 Bem-vinda ao *Kellen Cristina Beauty Studio*!\n\n" +
+        "Sou sua assistente virtual e estou aqui para te ajudar. Como posso te atender?\n\n" +
+        "✂️ *1* — Agendar um serviço\n" +
+        "❄️ *2* — Conhecer o Clube da Escova Express\n" +
+        "📅 *3* — Consultar agendamento\n" +
+        "❌ *4* — Cancelar agendamento"
+      );
+      setChatStep("menu");
+    }, 500);
+  }
+
+  const addBot  = (text, opts = null, type = "bot") =>
+    setMessages(p => [...p, { id: Date.now() + Math.random(), role: "bot",  text, opts, type }]);
+  const addUser = (text) =>
+    setMessages(p => [...p, { id: Date.now() + Math.random(), role: "user", text }]);
+
+  // ── Process user input ────────────────────────────────────────────────
+  async function handleSend(text) {
+    if (!text.trim()) return;
+    addUser(text);
+    setInput("");
+    setIsTyping(true);
+    await new Promise(r => setTimeout(r, 700));
+
+    const t = text.toLowerCase().trim();
+
+    switch (chatStep) {
+      case "menu": {
+        if (t === "1" || t.includes("agen") || t.includes("marcar") || t.includes("serviço")) {
+          addBot("Adorei! 💕 Para começar, qual é o seu *nome completo*?");
+          setChatStep("name");
+        } else if (t === "2" || t.includes("clube") || t.includes("pacote") || t.includes("escova express")) {
+          addBot(CLUBE_INFO_TEXT);
+          setChatStep("menu");
+        } else if (t === "3" || t.includes("consult") || t.includes("ver agend") || t.includes("meu agend")) {
+          addBot("Claro! Me diga seu número de *telefone com DDD* para buscar seu agendamento:");
+          setChatStep("lookup");
+        } else if (t === "4" || t.includes("cancel") || t.includes("desmar")) {
+          addBot("Entendido. Qual é o seu *telefone com DDD* para localizar o agendamento?");
+          setChatStep("cancel");
+        } else {
+          const reply = await askClaude(
+            [{ role: "user", content: text }],
+            "Você é a assistente virtual do Kellen Cristina Beauty Studio, um salão de beleza e estética sofisticado em Curitiba-PR. Responda em português, de forma calorosa, elegante e afetuosa. Serviços: Escova Express avulso R$45–R$75; Clube da Escova (Pacote 4x 1x/semana R$160–R$280, Pacote 8x 2x/semana R$320–R$560, válido 30 dias, não inclui babyliss); Tratamentos add-on com ozonioterapia (+R$15 a +R$35); Progressivas R$150–R$350. Horário: Seg–Sáb 9h–19h. Sempre direcione para agendar. Seja breve e simpática."
+          );
+          addBot(reply);
+        }
+        break;
+      }
+      case "name": {
+        setClientData(p => ({ ...p, name: text }));
+        addBot(`Que nome lindo, *${text}*! 😊\n\nQual é o seu *telefone com DDD*?\n(Ex: 41 99999-9999)`);
+        setChatStep("phone");
+        break;
+      }
+      case "phone": {
+        setClientData(p => ({ ...p, phone: text }));
+        addBot("Perfeito! 🌸 E qual a sua *data de aniversário*? (Ex: 15/06 — só dia e mês)\n\nPode digitar *pular* se preferir.");
+        setChatStep("birthday");
+        break;
+      }
+      case "birthday": {
+        const bday = t === "pular" ? "" : text;
+        setClientData(p => ({ ...p, birthday: bday }));
+        addBot("Agora escolha o serviço desejado:", SERVICES, "services");
+        setChatStep("service");
+        break;
+      }
+      case "confirm": {
+        if (t.includes("sim") || t === "s" || t.includes("confirm") || t.includes("ok") || t.includes("isso")) {
+          await finalize();
+        } else {
+          addBot("Tudo bem! Vamos recomeçar. ✨\nEscolha o serviço desejado:", SERVICES, "services");
+          setChatStep("service");
+          setSelService(null);
+          setSelSlot(null);
+        }
+        break;
+      }
+      case "lookup": {
+        const clean = text.replace(/\D/g, "");
+        const found = appointments.find(a => a.client.phone.replace(/\D/g, "").includes(clean));
+        if (found) {
+          addBot(`📅 Encontrei seu agendamento:\n\n${found.service.emoji} *${found.service.name}*\n🗓️ ${fmtDT(found.slot)}\n💰 ${found.service.price}\nStatus: ${found.status === "confirmed" ? "✅ Confirmado" : "⏳ Aguardando confirmação"}\n\nPosso te ajudar com mais alguma coisa?`);
+        } else {
+          addBot("Não encontrei nenhum agendamento com esse número. Deseja *agendar* um serviço?");
+        }
+        setChatStep("menu");
+        break;
+      }
+      case "cancel": {
+        const clean = text.replace(/\D/g, "");
+        const found = appointments.find(a => a.client.phone.replace(/\D/g, "").includes(clean) && a.status !== "cancelled");
+        if (found) {
+          setAppointments(p => p.map(a => a.id === found.id ? { ...a, status: "cancelled" } : a));
+          notify(`❌ Agendamento de ${found.client.name} cancelado.`, "error");
+          addBot(`Agendamento de *${found.service.name}* em ${fmtDT(found.slot)} foi *cancelado* com sucesso.\n\nSempre que quiser reagendar, estarei aqui! 💕`);
+        } else {
+          addBot("Não encontrei agendamento ativo com esse número. Posso te ajudar com mais alguma coisa?");
+        }
+        setChatStep("menu");
+        break;
+      }
+      default: {
+        const reply = await askClaude(
+          [{ role: "user", content: text }],
+          "Você é a assistente virtual do Kellen Cristina Beauty Studio. Responda em português, de forma calorosa e elegante. Serviços: Escova Express R$45–R$75, Clube da Escova (Pacote 4x R$160–R$280, Pacote 8x R$320–R$560), Progressivas R$150–R$350, Tratamentos com ozonioterapia. Horário: Seg–Sáb 9h–19h. Indique sempre agendar."
+        );
+        addBot(reply);
+      }
+    }
+    setIsTyping(false);
+  }
+
+  function pickService(s) {
+    setSelService(s);
+    const slots = getNextSlots(s);
+    addUser(`${s.emoji} ${s.name}`);
+    setTimeout(() => {
+      addBot(`Ótima escolha! *${s.name}* tem duração de ${s.duration} min e custa *${s.price}*. 💛\n\nEscolha um horário disponível:`, slots, "slots");
+      setChatStep("slot");
+    }, 500);
+  }
+
+  function pickSlot(slot) {
+    setSelSlot(slot);
+    addUser(`📅 ${fmtDT(slot)}`);
+    setTimeout(() => {
+      addBot(`Perfeito! Confirme seu agendamento: ✨\n\n👤 *${clientData.name}*\n📱 ${clientData.phone}${clientData.birthday ? `\n🎂 Aniversário: ${clientData.birthday}` : ""}\n${selService.emoji} *${selService.name}*\n🗓️ ${fmtDT(slot)}\n⏱️ ${selService.duration} min\n💰 ${selService.price}\n\nConfirmar? (Sim / Não)`);
+      setChatStep("confirm");
+    }, 500);
+  }
+
+  async function finalize() {
+    const appt = { id: Date.now(), client: { ...clientData }, service: selService, slot: selSlot, status: "confirmed", calendarEventId: null };
+    let calMsg = "";
+    if (googleStatus === "connected" && accessToken) {
+      try { const e = await createCalendarEvent(appt, accessToken); appt.calendarEventId = e.id; calMsg = "\n📅 Evento criado no *Google Calendar*!"; }
+      catch { calMsg = "\n⚠️ Não foi possível criar no Calendar."; }
+    } else if (googleStatus === "mock") {
+      appt.calendarEventId = "mock_" + Date.now();
+      calMsg = "\n📅 Agendado no *Google Calendar* (modo demo)!";
+    }
+    setAppointments(p => [...p, appt]);
+    notify(`📅 Novo agendamento: ${clientData.name} — ${selService.name} em ${fmtDate(selSlot)}`, "booking");
+    addBot(`✅ *Agendamento confirmado!*${calMsg}\n\n${selService.emoji} ${selService.name}\n🗓️ ${fmtDT(selSlot)}\n\nVocê receberá uma confirmação 1 dia antes. Até logo, ${clientData.name.split(" ")[0]}! 💕`);
+    setChatStep("menu");
+    setSelService(null); setSelSlot(null);
+    setClientData({ name: "", phone: "", birthday: "" });
+    setIsTyping(false);
+  }
+
+  function connectGoogle() {
+    if (!window.google) { setGoogleStatus("mock"); notify("🟡 Modo demo ativado — agendamentos simulados.", "info"); return; }
+    window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID, scope: GOOGLE_SCOPES,
+      callback: r => { if (r.access_token) { setAccessToken(r.access_token); setGoogleStatus("connected"); notify("✅ Google Calendar conectado!", "success"); } },
+    }).requestAccessToken();
+  }
+
+  function confirmAppt(id) { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "confirmed" } : a)); notify("✅ Agendamento confirmado.", "success"); }
+  function cancelAppt(id)  { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a)); notify("❌ Agendamento cancelado.", "error"); }
+  function sendBday(a)     { notify(`🎂 Mensagem de aniversário enviada para ${a.client.name}! "Feliz aniversário! O Kellen Cristina Beauty Studio tem um mimo especial para você! 🎁💛"`, "bday"); }
+
+  const todayAppts   = appointments.filter(a => new Date(a.slot).toDateString() === new Date().toDateString() && a.status !== "cancelled");
+  const pendingAppts = appointments.filter(a => a.status === "pending");
+  const bdayClients  = appointments.filter(a => isBirthday(a.client.birthday));
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+  return (
+    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", background: BRAND.navy, minHeight: "100vh", color: BRAND.cream }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: ${BRAND.navy}; }
+        ::-webkit-scrollbar-thumb { background: ${BRAND.goldDark}; border-radius: 2px; }
+        .lato { font-family: 'Lato', sans-serif; }
+        .fade { animation: fadeUp .35s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+        .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:${BRAND.gold}; margin:0 2px; }
+        .dot1 { animation: blink 1.1s 0s infinite; }
+        .dot2 { animation: blink 1.1s .2s infinite; }
+        .dot3 { animation: blink 1.1s .4s infinite; }
+        .btn-gold { background:${BRAND.goldGrad}; color:${BRAND.navy}; border:none; border-radius:6px; padding:9px 20px; font-family:'Lato',sans-serif; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; letter-spacing:.5px; }
+        .btn-gold:hover { transform:translateY(-1px); box-shadow:0 4px 18px rgba(218,182,94,.35); }
+        .btn-outline { background:transparent; border:1px solid ${BRAND.goldDark}55; color:${BRAND.goldText}; border-radius:6px; padding:7px 14px; font-family:'Lato',sans-serif; font-size:12px; cursor:pointer; transition:all .2s; }
+        .btn-outline:hover { background:${BRAND.goldDark}22; border-color:${BRAND.gold}; }
+        .btn-danger { background:transparent; border:1px solid #f8717144; color:#f87171; border-radius:6px; padding:7px 14px; font-family:'Lato',sans-serif; font-size:12px; cursor:pointer; transition:all .2s; }
+        .btn-danger:hover { background:#f8717122; }
+        .card { background:${BRAND.navyCard}; border:1px solid ${BRAND.navyBorder}; border-radius:12px; }
+        .divider { border:none; border-top:1px solid ${BRAND.navyBorder}; }
+        .tag-confirmed { background:#0d2a1a; color:#4ade80; border:1px solid #4ade8033; }
+        .tag-pending   { background:#2a200a; color:#fbbf24; border:1px solid #fbbf2433; }
+        .tag-cancelled { background:#2a0d0d; color:#f87171; border:1px solid #f8717133; }
+        .tag { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-family:'Lato',sans-serif; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+        input:focus { outline:none; }
+      `}</style>
+
+      {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", height:64, borderBottom:`1px solid ${BRAND.navyBorder}`, background:`${BRAND.navyCard}cc`, backdropFilter:"blur(8px)", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <KCSeal size={44} />
+          <div>
+            <div style={{ fontSize:16, fontWeight:700, color:BRAND.cream, letterSpacing:".3px" }}>Kellen Cristina</div>
+            <div className="lato" style={{ fontSize:9, color:BRAND.gold, letterSpacing:"2.5px", textTransform:"uppercase" }}>Beauty Studio</div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {googleStatus === "disconnected" && (
+            <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:11 }}>📅 Google Calendar</button>
+          )}
+          {googleStatus === "connected" && <span className="lato" style={{ fontSize:11, color:"#4ade80" }}>✅ Calendar</span>}
+          {googleStatus === "mock"      && <span className="lato" style={{ fontSize:11, color:BRAND.gold }}>🟡 Demo</span>}
+          <button className="btn-outline" onClick={() => setView(v => v==="chat"?"dashboard":"chat")} style={{ fontSize:11 }}>
+            {view==="chat" ? "📊 Painel" : "💬 Chat"}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display:"flex", height:"calc(100vh - 64px)" }}>
+
+        {/* ── SIDEBAR ─────────────────────────────────────────────────── */}
+        <div style={{ width:240, borderRight:`1px solid ${BRAND.navyBorder}`, display:"flex", flexDirection:"column", background:`${BRAND.navyCard}88` }}>
+          {/* Clube da Escova Express promo banner */}
+          <div style={{ padding:"14px 14px 12px", borderBottom:`1px solid ${BRAND.navyBorder}`, background:"linear-gradient(135deg,#001830,#002040)", textAlign:"center" }}>
+            <div style={{ fontSize:18, marginBottom:4 }}>❄️✨</div>
+            <div style={{ fontSize:12, fontWeight:700, color:BRAND.gold, letterSpacing:".5px" }}>Clube da Escova Express</div>
+            <div className="lato" style={{ fontSize:10, color:BRAND.creamMuted, marginTop:4, lineHeight:1.5 }}>
+              Cabelo alinhado toda semana,<br/>sem lavar em casa no frio!
+            </div>
+            <div className="lato" style={{ fontSize:10, color:BRAND.creamDim, marginTop:6 }}>
+              Pacote 4x a partir de <span style={{ color:BRAND.gold, fontWeight:700 }}>R$ 160</span>
+            </div>
+          </div>
+
+          {/* Notifications */}
+          <div style={{ flex:1, overflowY:"auto", padding:"12px 10px" }}>
+            <div className="lato" style={{ fontSize:9, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.creamDim, marginBottom:10, paddingLeft:4 }}>Notificações</div>
+            {notifications.length === 0 && (
+              <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, textAlign:"center", marginTop:20, fontStyle:"italic" }}>Nenhuma notificação</div>
+            )}
+            {notifications.map(n => (
+              <div key={n.id} className="fade" style={{ marginBottom:7, padding:"9px 11px", borderRadius:8, background: n.type==="bday"?"#1a0d2e":n.type==="success"?"#0a1e12":n.type==="error"?"#1e0a0a":"#0a1828", borderLeft:`3px solid ${n.type==="bday"?"#a78bfa":n.type==="success"?"#4ade80":n.type==="error"?"#f87171":BRAND.gold}` }}>
+                <div className="lato" style={{ fontSize:10, lineHeight:1.5, color:BRAND.creamMuted }}>{n.text}</div>
+              </div>
+            ))}
+
+            {/* Birthday alert */}
+            {bdayClients.length > 0 && (
+              <div style={{ marginTop:12 }}>
+                <div className="lato" style={{ fontSize:9, letterSpacing:"2px", textTransform:"uppercase", color:"#a78bfa", marginBottom:8, paddingLeft:4 }}>🎂 Aniversários Hoje</div>
+                {bdayClients.map(a => (
+                  <div key={a.id} className="card" style={{ padding:10, marginBottom:8 }}>
+                    <div className="lato" style={{ fontSize:12, color:BRAND.cream, fontWeight:700 }}>{a.client.name}</div>
+                    <button className="btn-outline" style={{ marginTop:6, width:"100%", fontSize:10, borderColor:"#a78bfa44", color:"#a78bfa" }} onClick={() => sendBday(a)}>
+                      🎂 Enviar parabéns
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── MAIN CONTENT ────────────────────────────────────────────── */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+          {view === "chat" ? (
+            <>
+              {/* Messages area */}
+              <div style={{ flex:1, overflowY:"auto", padding:"24px 28px", display:"flex", flexDirection:"column", gap:14 }}>
+                {messages.map(msg => (
+                  <div key={msg.id} className="fade" style={{ display:"flex", flexDirection:"column", alignItems: msg.role==="user"?"flex-end":"flex-start", gap:8 }}>
+
+                    {/* Bubble */}
+                    <div style={{
+                      maxWidth:"68%",
+                      padding:"12px 16px",
+                      borderRadius: msg.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                      background: msg.role==="user" ? BRAND.goldGrad : BRAND.navyCard,
+                      color: msg.role==="user" ? BRAND.navy : BRAND.cream,
+                      border: msg.role==="bot" ? `1px solid ${BRAND.navyBorder}` : "none",
+                      fontSize:14, lineHeight:1.65, whiteSpace:"pre-wrap",
+                      boxShadow: msg.role==="user" ? "0 2px 12px rgba(218,182,94,.25)" : "none",
+                    }}
+                      dangerouslySetInnerHTML={{ __html: msg.text
+                        .replace(/\*([^*]+)\*/g, `<strong style="color:${msg.role==="user"?BRAND.navy:BRAND.gold}">$1</strong>`)
+                        .replace(/_(.*?)_/g, "<em>$1</em>")
+                      }}
+                    />
+
+                    {/* Service cards grouped by category */}
+                    {msg.type === "services" && msg.opts && (
+                      <div style={{ maxWidth:"84%", display:"flex", flexDirection:"column", gap:12 }}>
+                        {SERVICE_CATEGORIES.map(cat => {
+                          const catServices = msg.opts.filter(s => cat.ids.includes(s.id));
+                          if (!catServices.length) return null;
+                          return (
+                            <div key={cat.id}>
+                              <div className="lato" style={{ fontSize:10, color:BRAND.gold, letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6, paddingLeft:2 }}>{cat.label}</div>
+                              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+                                {catServices.map(s => (
+                                  <button key={s.id} onClick={() => pickService(s)} className="card btn-outline" style={{ textAlign:"left", padding:"10px 12px", display:"flex", flexDirection:"column", gap:3, borderRadius:10 }}>
+                                    <span style={{ fontSize:18 }}>{s.emoji}</span>
+                                    <span className="lato" style={{ fontSize:11, color:BRAND.cream, fontWeight:700, lineHeight:1.3 }}>{s.name}</span>
+                                    <span className="lato" style={{ fontSize:11, color:BRAND.gold }}>{s.price} · {s.duration}min</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Slot buttons */}
+                    {msg.type === "slots" && msg.opts && (
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:7, maxWidth:"78%" }}>
+                        {msg.opts.map((slot, i) => (
+                          <button key={i} onClick={() => pickSlot(slot)} className="btn-outline" style={{ padding:"7px 12px", borderRadius:8 }}>
+                            <span className="lato" style={{ fontSize:11 }}>
+                              {slot.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})} {fmtTime(slot)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {isTyping && (
+                  <div className="fade" style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ background:BRAND.navyCard, border:`1px solid ${BRAND.navyBorder}`, borderRadius:"18px 18px 18px 4px", padding:"12px 16px" }}>
+                      <span className="dot dot1"/><span className="dot dot2"/><span className="dot dot3"/>
+                    </div>
+                  </div>
+                )}
+                <div ref={bottomRef} />
+              </div>
+
+              {/* Input bar */}
+              <div style={{ borderTop:`1px solid ${BRAND.navyBorder}`, padding:"12px 20px", display:"flex", gap:10, background:`${BRAND.navyCard}dd` }}>
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key==="Enter" && handleSend(input)}
+                  placeholder="Digite sua mensagem..."
+                  className="lato"
+                  style={{ flex:1, background:BRAND.navyLight, border:`1px solid ${BRAND.navyBorder}`, borderRadius:10, padding:"10px 16px", color:BRAND.cream, fontSize:13 }}
+                />
+                <button className="btn-gold" onClick={() => handleSend(input)}>Enviar</button>
+              </div>
+            </>
+          ) : (
+            /* ── DASHBOARD ────────────────────────────────────────────── */
+            <div style={{ flex:1, overflowY:"auto", padding:"24px 28px" }}>
+              <div style={{ marginBottom:24 }}>
+                <div style={{ fontSize:22, fontWeight:700, color:BRAND.cream }}>Painel de Gestão</div>
+                <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, marginTop:2, letterSpacing:"1px" }}>Kellen Cristina Beauty Studio</div>
+              </div>
+
+              {/* Clube da Escova Express pricing highlight */}
+              <div style={{ background:"linear-gradient(135deg,#001830 0%,#002040 100%)", border:`1px solid ${BRAND.gold}33`, borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:BRAND.gold, marginBottom:8 }}>❄️ Clube da Escova Express — Tabela de Preços</div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+                  {[
+                    { label:"Avulso", sub:"Lavagem + Escova", items:["Curto R$45","Médio R$55","Longo R$65","Xlongo R$75"] },
+                    { label:"Pacote 4x 🌟", sub:"1x/semana · 30 dias", items:["Curto R$160","Médio R$200","Longo R$240","Xlongo R$280"] },
+                    { label:"Pacote 8x 💎", sub:"2x/semana · 30 dias", items:["Curto R$320","Médio R$400","Longo R$480","Xlongo R$560"] },
+                  ].map(col => (
+                    <div key={col.label} style={{ background:`${BRAND.navyCard}`, border:`1px solid ${BRAND.navyBorder}`, borderRadius:8, padding:"10px 12px" }}>
+                      <div className="lato" style={{ fontSize:11, fontWeight:700, color:BRAND.gold, marginBottom:2 }}>{col.label}</div>
+                      <div className="lato" style={{ fontSize:9, color:BRAND.creamDim, marginBottom:6, letterSpacing:".5px" }}>{col.sub}</div>
+                      {col.items.map(i => <div key={i} className="lato" style={{ fontSize:11, color:BRAND.creamMuted, lineHeight:1.8 }}>• {i}</div>)}
+                    </div>
+                  ))}
+                </div>
+                <div className="lato" style={{ fontSize:10, color:BRAND.creamDim, marginTop:10 }}>
+                  ➕ Add-ons: Hidratação+Ozônio +R$20 · Nutrição+Ozônio +R$25 · Reconstrução+Ozônio +R$35 · Ampola Premium +R$15
+                  <span style={{ color:"#f87171", marginLeft:8 }}>⚠️ Não inclui babyliss ou penteados elaborados</span>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:24 }}>
+                {[
+                  { label:"Hoje",        val:todayAppts.length,                                          icon:"📅", color:BRAND.gold },
+                  { label:"Pendentes",   val:pendingAppts.length,                                        icon:"⏳", color:"#fbbf24" },
+                  { label:"Total Ativo", val:appointments.filter(a=>a.status!=="cancelled").length,      icon:"✅", color:"#4ade80" },
+                  { label:"Aniversários",val:bdayClients.length,                                         icon:"🎂", color:"#a78bfa" },
+                ].map(s => (
+                  <div key={s.label} className="card" style={{ padding:"18px 14px", textAlign:"center" }}>
+                    <div style={{ fontSize:26, marginBottom:6 }}>{s.icon}</div>
+                    <div style={{ fontSize:30, fontWeight:700, color:s.color }}>{s.val}</div>
+                    <div className="lato" style={{ fontSize:10, color:BRAND.creamDim, marginTop:3, letterSpacing:"1px", textTransform:"uppercase" }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Appointments */}
+              <div className="lato" style={{ fontSize:9, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.creamDim, marginBottom:12 }}>Agendamentos</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:24 }}>
+                {appointments.length === 0 && (
+                  <div className="card" style={{ padding:20, textAlign:"center" }}>
+                    <span className="lato" style={{ color:BRAND.creamDim, fontSize:13 }}>Nenhum agendamento ainda.</span>
+                  </div>
+                )}
+                {appointments.map(a => (
+                  <div key={a.id} className="card fade" style={{ padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+                    <div style={{ display:"flex", gap:14, alignItems:"center" }}>
+                      <div style={{ width:44, height:44, borderRadius:"50%", background:`${BRAND.navyLight}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, border:`1px solid ${BRAND.navyBorder}` }}>{a.service.emoji}</div>
+                      <div>
+                        <div style={{ fontSize:15, fontWeight:600, color:BRAND.cream }}>{a.client.name}</div>
+                        <div className="lato" style={{ fontSize:12, color:BRAND.creamMuted, marginTop:2 }}>{a.service.name} · {fmtDT(a.slot)}</div>
+                        <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, marginTop:1 }}>
+                          {a.client.phone}
+                          {a.client.birthday && ` · 🎂 ${a.client.birthday}`}
+                          {a.calendarEventId && <span style={{ color:"#4ade80", marginLeft:6 }}>· 📅 Calendar</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                      <span className={`tag tag-${a.status}`}>
+                        {a.status==="confirmed"?"Confirmado":a.status==="pending"?"Pendente":"Cancelado"}
+                      </span>
+                      {a.status==="pending" && (
+                        <>
+                          <button className="btn-gold" style={{ padding:"5px 12px", fontSize:11 }} onClick={()=>confirmAppt(a.id)}>Confirmar</button>
+                          <button className="btn-danger" style={{ padding:"5px 12px", fontSize:11 }} onClick={()=>cancelAppt(a.id)}>Cancelar</button>
+                        </>
+                      )}
+                      {isBirthday(a.client.birthday) && (
+                        <button className="btn-outline" style={{ fontSize:11, padding:"5px 12px", borderColor:"#a78bfa44", color:"#a78bfa" }} onClick={()=>sendBday(a)}>🎂 Parabéns</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Google Calendar card */}
+              <div style={{ background:"#060f1a", border:`1px solid ${BRAND.navyBorder}`, borderRadius:12, padding:20 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                  <span style={{ fontSize:20 }}>📅</span>
+                  <div className="lato" style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.gold }}>Google Calendar</div>
+                </div>
+                {googleStatus === "disconnected" && (
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
+                    <span className="lato" style={{ fontSize:12, color:BRAND.creamDim }}>Conecte para criar eventos automaticamente ao agendar.</span>
+                    <button className="btn-gold" onClick={connectGoogle}>Conectar</button>
+                  </div>
+                )}
+                {googleStatus === "connected" && (
+                  <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
+                )}
+                {googleStatus === "mock" && (
+                  <div>
+                    <div className="lato" style={{ fontSize:12, color:BRAND.gold, marginBottom:10 }}>🟡 Modo demo — eventos simulados</div>
+                    <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, lineHeight:1.8 }}>
+                      Para ativar de verdade:<br/>
+                      1. Acesse <strong style={{color:"#60a5fa"}}>console.cloud.google.com</strong><br/>
+                      2. Crie um projeto e ative a API Google Calendar<br/>
+                      3. Crie credenciais OAuth 2.0 (tipo Web)<br/>
+                      4. Substitua <strong style={{color:BRAND.gold}}>GOOGLE_CLIENT_ID</strong> no início do código<br/>
+                      5. Adicione seu domínio como origem autorizada
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
