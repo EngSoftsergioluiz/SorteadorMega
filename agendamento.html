@@ -154,6 +154,16 @@ Deseja agendar? Digite *1* para começar! 💕`;
     }
     function saveSchedule(s) { localStorage.setItem("kc_schedule", JSON.stringify(s)); }
 
+    function loadAppointments() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("kc_appointments") || "[]");
+        return saved.map(a => ({ ...a, slot: new Date(a.slot) }));
+      } catch { return []; }
+    }
+    function saveAppointments(list) {
+      localStorage.setItem("kc_appointments", JSON.stringify(list));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     const fmtDate = d => d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
     const fmtTime = d => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -349,15 +359,13 @@ Deseja agendar? Digite *1* para começar! 💕`;
       const [schedule,      setSchedule]      = useState(loadSchedule);
       const [notifications, setNotifications] = useState([]);
       const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
-      const [appointments,  setAppointments]  = useState([
-        { id: 1, client: { name: "Ana Lima",    phone: "(41) 99111-2222", birthday: "15/07" }, service: SERVICES[0], slot: new Date(Date.now() + 86400000),  status: "confirmed", calendarEventId: "evt_001" },
-        { id: 2, client: { name: "Bia Ferreira",phone: "(41) 98222-3333", birthday: "03/06" }, service: SERVICES[3], slot: new Date(Date.now() + 172800000), status: "pending",   calendarEventId: null },
-      ]);
+      const [appointments,  setAppointments]  = useState(loadAppointments);
       const bottomRef = useRef(null);
       const inputRef  = useRef(null);
       const isMobile  = viewportWidth <= 768;
       const isNarrow  = viewportWidth <= 480;
 
+      useEffect(() => { saveAppointments(appointments); }, [appointments]);
       useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
       useEffect(() => {
         const bdays = appointments.filter(a => isBirthday(a.client.birthday));
