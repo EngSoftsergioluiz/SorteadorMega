@@ -198,6 +198,12 @@ Deseja agendar? Digite *1* para começar! 💕`;
       return +d === today.getDate() && +m === today.getMonth() + 1;
     }
 
+    function getViewportWidth() {
+      return window.innerWidth;
+    }
+
+    const ASSISTANT_FALLBACK_MESSAGE = "Posso te ajudar por aqui mesmo 💛 Digite *1* para agendar, *2* para conhecer o Clube da Escova, *3* para consultar ou *4* para cancelar.";
+
     // ── Google Calendar ───────────────────────────────────────────────────────
     async function createCalendarEvent({ client, service, slot }) {
       const end = new Date(slot.getTime() + service.duration * 60000);
@@ -215,19 +221,43 @@ Deseja agendar? Digite *1* para começar! 💕`;
         body: JSON.stringify(event),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || data.error || `Erro ${r.status}`);
+      if (!r.ok) {
+        const err = new Error(data.error?.message || data.error || `Erro ${r.status}`);
+        err.code = data.code;
+        throw err;
+      }
       return data;
+    }
+
+    async function fetchCalendarStatus() {
+      try {
+        const r = await fetch("/api/calendar");
+        if (r.status === 404) return "manual";
+        if (!r.ok) {
+          console.warn("Google Calendar status indisponível:", r.status);
+          return "manual";
+        }
+        const data = await r.json().catch(() => ({}));
+        return data.configured ? "connected" : "not_configured";
+      } catch {
+        return "manual";
+      }
     }
 
     // ── Claude AI ─────────────────────────────────────────────────────────────
     async function askClaude(messages, system) {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system, messages }),
-      });
-      const d = await r.json();
-      return d.content?.[0]?.text || "Desculpe, pode repetir?";
+      try {
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system, messages }),
+        });
+        if (!r.ok) return ASSISTANT_FALLBACK_MESSAGE;
+        const d = await r.json();
+        return d.content?.[0]?.text || ASSISTANT_FALLBACK_MESSAGE;
+      } catch {
+        return ASSISTANT_FALLBACK_MESSAGE;
+      }
     }
 
     // ── Logo SVG inline (KC monogram) ─────────────────────────────────────────
@@ -287,25 +317,44 @@ Deseja agendar? Digite *1* para começar! 💕`;
       const [clientData,    setClientData]    = useState({ name: "", phone: "", birthday: "" });
       const [selService,    setSelService]    = useState(null);
       const [selSlot,       setSelSlot]       = useState(null);
-      const [googleStatus,  setGoogleStatus]  = useState("connected"); // gerenciado pelo backend /api/calendar
+      const [googleStatus,  setGoogleStatus]  = useState("checking");
       const [schedule,      setSchedule]      = useState(loadSchedule);
       const [notifications, setNotifications] = useState([]);
+      const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
       const [appointments,  setAppointments]  = useState([
         { id: 1, client: { name: "Ana Lima",    phone: "(41) 99111-2222", birthday: "15/07" }, service: SERVICES[0], slot: new Date(Date.now() + 86400000),  status: "confirmed", calendarEventId: "evt_001" },
         { id: 2, client: { name: "Bia Ferreira",phone: "(41) 98222-3333", birthday: "03/06" }, service: SERVICES[3], slot: new Date(Date.now() + 172800000), status: "pending",   calendarEventId: null },
       ]);
       const bottomRef = useRef(null);
       const inputRef  = useRef(null);
+      const isMobile  = viewportWidth <= 768;
+      const isNarrow  = viewportWidth <= 480;
 
       useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
       useEffect(() => {
         const bdays = appointments.filter(a => isBirthday(a.client.birthday));
         bdays.forEach(a => notify(`🎂 Aniversário de ${a.client.name} hoje!`, "bday"));
         triggerGreeting();
+        refreshCalendarStatus();
+      }, []);
+      useEffect(() => {
+        const onResize = () => setViewportWidth(getViewportWidth());
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
       }, []);
 
       function notify(text, type = "info") {
         setNotifications(p => [{ id: Date.now() + Math.random(), text, type }, ...p].slice(0, 25));
+      }
+
+      async function refreshCalendarStatus(showFeedback = false) {
+        const status = await fetchCalendarStatus();
+        setGoogleStatus(status);
+        if (!showFeedback) return status;
+        if (status === "connected") notify("✅ Google Calendar conectado.", "success");
+        else if (status === "not_configured") notify("ℹ️ Integração automática temporariamente indisponível; os agendamentos continuam funcionando nesta página.", "info");
+        else notify("ℹ️ Integração automática opcional indisponível; os agendamentos continuam funcionando nesta página.", "info");
+        return status;
       }
 
       function triggerGreeting() {
@@ -447,12 +496,23 @@ Deseja agendar? Digite *1* para começar! 💕`;
       async function finalize() {
         const appt = { id: Date.now(), client: { ...clientData }, service: selService, slot: selSlot, status: "confirmed", calendarEventId: null };
         let calMsg = "";
-        try {
-          const e = await createCalendarEvent(appt);
-          appt.calendarEventId = e.id;
-          calMsg = "\n📅 Evento criado no *Google Calendar*!";
-        } catch (err) {
-          calMsg = `\n⚠️ Não foi possível criar no Calendar: ${err.message}`;
+        if (googleStatus === "connected") {
+          try {
+            const e = await createCalendarEvent(appt);
+            appt.calendarEventId = e.id;
+            calMsg = "\n📅 Evento criado no *Google Calendar*!";
+          } catch (err) {
+            if (err.code === "CALENDAR_NOT_CONFIGURED") {
+              setGoogleStatus("not_configured");
+              calMsg = "\nℹ️ Agendamento salvo nesta página. A integração automática com o Google Calendar está temporariamente indisponível.";
+            } else {
+              calMsg = `\n⚠️ Não foi possível criar no Calendar: ${err.message}`;
+            }
+          }
+        } else if (googleStatus === "not_configured") {
+          calMsg = "\nℹ️ Agendamento salvo nesta página. A integração automática com o Google Calendar está temporariamente indisponível.";
+        } else if (googleStatus === "manual") {
+          calMsg = "\nℹ️ Agendamento salvo nesta página. A integração automática com o Google Calendar está opcionalmente desativada neste ambiente.";
         }
         setAppointments(p => [...p, appt]);
         notify(`📅 Novo agendamento: ${clientData.name} — ${selService.name} em ${fmtDate(selSlot)}`, "booking");
@@ -463,7 +523,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
         setIsTyping(false);
       }
 
-      function connectGoogle() { /* Conexão gerenciada pelo backend */ }
+      function connectGoogle() { refreshCalendarStatus(true); }
 
       function confirmAppt(id) { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "confirmed" } : a)); notify("✅ Agendamento confirmado.", "success"); }
       function cancelAppt(id)  { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a)); notify("❌ Agendamento cancelado.", "error"); }
@@ -496,7 +556,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
 
       // ─── Render ──────────────────────────────────────────────────────────────
       return (
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", background: BRAND.navy, minHeight: "100vh", color: BRAND.cream }}>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", background: BRAND.navy, minHeight: "100dvh", color: BRAND.cream, display:"flex", flexDirection:"column" }}>
           <style>{`
             @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
             * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -527,26 +587,29 @@ Deseja agendar? Digite *1* para começar! 💕`;
           `}</style>
 
           {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", height:64, borderBottom:`1px solid ${BRAND.navyBorder}`, background:`${BRAND.navyCard}cc`, backdropFilter:"blur(8px)", position:"sticky", top:0, zIndex:10 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-              <KCSeal size={44} />
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:isMobile?"10px 12px":"0 20px", minHeight:64, borderBottom:`1px solid ${BRAND.navyBorder}`, background:`${BRAND.navyCard}cc`, backdropFilter:"blur(8px)", position:"sticky", top:0, zIndex:10, flexWrap:isMobile?"wrap":"nowrap", gap:isMobile?10:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:isMobile?10:12, minWidth:0 }}>
+              <KCSeal size={isMobile ? 38 : 44} />
               <div>
-                <div style={{ fontSize:16, fontWeight:700, color:BRAND.cream, letterSpacing:".3px" }}>Kellen Cristina</div>
-                <div className="lato" style={{ fontSize:9, color:BRAND.gold, letterSpacing:"2.5px", textTransform:"uppercase" }}>Beauty Studio</div>
+                <div style={{ fontSize:isMobile?15:16, fontWeight:700, color:BRAND.cream, letterSpacing:".3px" }}>Kellen Cristina</div>
+                <div className="lato" style={{ fontSize:isMobile?8:9, color:BRAND.gold, letterSpacing:isMobile?"1.8px":"2.5px", textTransform:"uppercase" }}>Beauty Studio</div>
               </div>
             </div>
-            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <span className="lato" style={{ fontSize:11, color:"#4ade80" }}>✅ Calendar</span>
+            <div style={{ display:"flex", gap:8, alignItems:"center", width:isMobile?"100%":"auto", justifyContent:isMobile?"space-between":"flex-end", flexWrap:"wrap" }}>
+              {googleStatus === "connected" && <span className="lato" style={{ fontSize:11, color:"#4ade80" }}>✅ Calendar</span>}
+              {googleStatus === "checking" && <span className="lato" style={{ fontSize:11, color:BRAND.gold }}>⏳ Verificando</span>}
+              {googleStatus === "not_configured" && <span className="lato" style={{ fontSize:11, color:"#fbbf24" }}>ℹ️ Manual</span>}
+              {googleStatus === "manual" && <span className="lato" style={{ fontSize:11, color:BRAND.creamMuted }}>ℹ️ Manual</span>}
               <button className="btn-outline" onClick={() => setView(v => v==="chat"?"dashboard":"chat")} style={{ fontSize:11 }}>
                 {view==="chat" ? "📊 Painel" : "💬 Chat"}
               </button>
             </div>
           </div>
 
-          <div style={{ display:"flex", height:"calc(100vh - 64px)" }}>
+          <div style={{ display:"flex", flex:1, minHeight:0, flexDirection:isMobile?"column":"row" }}>
 
             {/* ── SIDEBAR ─────────────────────────────────────────────────── */}
-            <div style={{ width:240, borderRight:`1px solid ${BRAND.navyBorder}`, display:"flex", flexDirection:"column", background:`${BRAND.navyCard}88` }}>
+            <div style={{ width:isMobile?"100%":240, borderRight:isMobile?"none":`1px solid ${BRAND.navyBorder}`, borderBottom:isMobile?`1px solid ${BRAND.navyBorder}`:"none", display:"flex", flexDirection:"column", background:`${BRAND.navyCard}88`, order:isMobile?2:0, maxHeight:isMobile?260:"none" }}>
               {/* Clube da Escova Express promo banner */}
               <div style={{ padding:"14px 14px 12px", borderBottom:`1px solid ${BRAND.navyBorder}`, background:"linear-gradient(135deg,#001830,#002040)", textAlign:"center" }}>
                 <div style={{ fontSize:18, marginBottom:4 }}>❄️✨</div>
@@ -589,18 +652,18 @@ Deseja agendar? Digite *1* para começar! 💕`;
             </div>
 
             {/* ── MAIN CONTENT ────────────────────────────────────────────── */}
-            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0, order:isMobile?1:0 }}>
 
               {view === "chat" ? (
                 <>
                   {/* Messages area */}
-                  <div style={{ flex:1, overflowY:"auto", padding:"24px 28px", display:"flex", flexDirection:"column", gap:14 }}>
+                  <div style={{ flex:1, overflowY:"auto", padding:isMobile?"16px 12px":"24px 28px", display:"flex", flexDirection:"column", gap:14 }}>
                     {messages.map(msg => (
                       <div key={msg.id} className="fade" style={{ display:"flex", flexDirection:"column", alignItems: msg.role==="user"?"flex-end":"flex-start", gap:8 }}>
 
                         {/* Bubble */}
                         <div style={{
-                          maxWidth:"68%",
+                          maxWidth:isMobile?"88%":"68%",
                           padding:"12px 16px",
                           borderRadius: msg.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",
                           background: msg.role==="user" ? BRAND.goldGrad : BRAND.navyCard,
@@ -617,14 +680,14 @@ Deseja agendar? Digite *1* para começar! 💕`;
 
                         {/* Service cards grouped by category */}
                         {msg.type === "services" && msg.opts && (
-                          <div style={{ maxWidth:"84%", display:"flex", flexDirection:"column", gap:12 }}>
+                          <div style={{ maxWidth:isMobile?"100%":"84%", display:"flex", flexDirection:"column", gap:12 }}>
                             {SERVICE_CATEGORIES.map(cat => {
                               const catServices = msg.opts.filter(s => cat.ids.includes(s.id));
                               if (!catServices.length) return null;
                               return (
                                 <div key={cat.id}>
                                   <div className="lato" style={{ fontSize:10, color:BRAND.gold, letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6, paddingLeft:2 }}>{cat.label}</div>
-                                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
+                                  <div style={{ display:"grid", gridTemplateColumns:isNarrow?"1fr":"1fr 1fr", gap:7 }}>
                                     {catServices.map(s => (
                                       <button key={s.id} onClick={() => pickService(s)} className="card btn-outline" style={{ textAlign:"left", padding:"10px 12px", display:"flex", flexDirection:"column", gap:3, borderRadius:10 }}>
                                         <span style={{ fontSize:18 }}>{s.emoji}</span>
@@ -641,7 +704,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
 
                         {/* Slot buttons */}
                         {msg.type === "slots" && msg.opts && (
-                          <div style={{ display:"flex", flexWrap:"wrap", gap:7, maxWidth:"78%" }}>
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:7, maxWidth:isMobile?"100%":"78%" }}>
                             {msg.opts.map((slot, i) => (
                               <button key={i} onClick={() => pickSlot(slot)} className="btn-outline" style={{ padding:"7px 12px", borderRadius:8 }}>
                                 <span className="lato" style={{ fontSize:11 }}>
@@ -665,7 +728,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
                   </div>
 
                   {/* Input bar */}
-                  <div style={{ borderTop:`1px solid ${BRAND.navyBorder}`, padding:"12px 20px", display:"flex", gap:10, background:`${BRAND.navyCard}dd` }}>
+                  <div style={{ borderTop:`1px solid ${BRAND.navyBorder}`, padding:isMobile?"12px":"12px 20px", display:"flex", gap:10, background:`${BRAND.navyCard}dd`, flexDirection:isMobile?"column":"row" }}>
                     <input
                       ref={inputRef}
                       value={input}
@@ -673,14 +736,14 @@ Deseja agendar? Digite *1* para começar! 💕`;
                       onKeyDown={e => e.key==="Enter" && handleSend(input)}
                       placeholder="Digite sua mensagem..."
                       className="lato"
-                      style={{ flex:1, background:BRAND.navyLight, border:`1px solid ${BRAND.navyBorder}`, borderRadius:10, padding:"10px 16px", color:BRAND.cream, fontSize:13 }}
+                      style={{ flex:1, background:BRAND.navyLight, border:`1px solid ${BRAND.navyBorder}`, borderRadius:10, padding:"10px 16px", color:BRAND.cream, fontSize:13, minWidth:0 }}
                     />
-                    <button className="btn-gold" onClick={() => handleSend(input)}>Enviar</button>
+                    <button className="btn-gold" onClick={() => handleSend(input)} style={{ width:isMobile?"100%":"auto" }}>Enviar</button>
                   </div>
                 </>
               ) : (
                 /* ── DASHBOARD ────────────────────────────────────────────── */
-                <div style={{ flex:1, overflowY:"auto", padding:"24px 28px" }}>
+                <div style={{ flex:1, overflowY:"auto", padding:isMobile?"16px 12px":"24px 28px" }}>
                   <div style={{ marginBottom:24 }}>
                     <div style={{ fontSize:22, fontWeight:700, color:BRAND.cream }}>Painel de Gestão</div>
                     <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, marginTop:2, letterSpacing:"1px" }}>Kellen Cristina Beauty Studio</div>
@@ -689,7 +752,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
                   {/* Clube da Escova Express pricing highlight */}
                   <div style={{ background:"linear-gradient(135deg,#001830 0%,#002040 100%)", border:`1px solid ${BRAND.gold}33`, borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
                     <div style={{ fontSize:14, fontWeight:700, color:BRAND.gold, marginBottom:8 }}>❄️ Clube da Escova Express — Tabela de Preços</div>
-                    <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+                    <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:10 }}>
                       {[
                         { label:"Avulso", sub:"Lavagem + Escova", items:["Curto R$45","Médio R$55","Longo R$65","Xlongo R$75"] },
                         { label:"Pacote 4x 🌟", sub:"1x/semana · 30 dias", items:["Curto R$160","Médio R$200","Longo R$240","Xlongo R$280"] },
@@ -709,7 +772,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
                   </div>
 
                   {/* Stats */}
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:24 }}>
+                  <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,minmax(0,1fr))":"repeat(4,minmax(0,1fr))", gap:12, marginBottom:24 }}>
                     {[
                       { label:"Hoje",        val:todayAppts.length,                                          icon:"📅", color:BRAND.gold },
                       { label:"Pendentes",   val:pendingAppts.length,                                        icon:"⏳", color:"#fbbf24" },
@@ -733,12 +796,12 @@ Deseja agendar? Digite *1* para começar! 💕`;
                       </div>
                     )}
                     {appointments.map(a => (
-                      <div key={a.id} className="card fade" style={{ padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
-                        <div style={{ display:"flex", gap:14, alignItems:"center" }}>
+                      <div key={a.id} className="card fade" style={{ padding:"14px 16px", display:"flex", alignItems:isMobile?"flex-start":"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+                        <div style={{ display:"flex", gap:14, alignItems:"center", minWidth:0 }}>
                           <div style={{ width:44, height:44, borderRadius:"50%", background:`${BRAND.navyLight}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, border:`1px solid ${BRAND.navyBorder}` }}>{a.service.emoji}</div>
-                          <div>
+                          <div style={{ minWidth:0 }}>
                             <div style={{ fontSize:15, fontWeight:600, color:BRAND.cream }}>{a.client.name}</div>
-                            <div className="lato" style={{ fontSize:12, color:BRAND.creamMuted, marginTop:2 }}>{a.service.name} · {fmtDT(a.slot)}</div>
+                            <div className="lato" style={{ fontSize:12, color:BRAND.creamMuted, marginTop:2, lineHeight:1.5 }}>{a.service.name} · {fmtDT(a.slot)}</div>
                             <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, marginTop:1 }}>
                               {a.client.phone}
                               {a.client.birthday && ` · 🎂 ${a.client.birthday}`}
@@ -770,7 +833,25 @@ Deseja agendar? Digite *1* para começar! 💕`;
                       <span style={{ fontSize:20 }}>📅</span>
                       <div className="lato" style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.gold }}>Google Calendar</div>
                     </div>
-                    <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
+                    {googleStatus === "connected" && (
+                      <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
+                    )}
+                    {googleStatus === "checking" && (
+                      <div className="lato" style={{ fontSize:13, color:BRAND.gold }}>⏳ Verificando integração automática com o Google Calendar...</div>
+                    )}
+                    {googleStatus === "not_configured" && (
+                      <>
+                        <div className="lato" style={{ fontSize:13, color:"#fbbf24", marginBottom:12 }}>ℹ️ A integração automática com o Google Calendar está temporariamente indisponível.</div>
+                        <div className="lato" style={{ fontSize:12, color:BRAND.creamDim, marginBottom:12 }}>Os agendamentos continuam funcionando normalmente nesta página, mesmo sem a criação automática do evento.</div>
+                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Verificar novamente</button>
+                      </>
+                    )}
+                    {googleStatus === "manual" && (
+                      <>
+                        <div className="lato" style={{ fontSize:13, color:BRAND.creamMuted, marginBottom:12 }}>ℹ️ Este ambiente está em modo manual: os agendamentos funcionam normalmente, mas a criação automática no Google Calendar está desativada.</div>
+                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Tentar novamente</button>
+                      </>
+                    )}
                   </div>
 
                   {/* ── Settings card ───────────────────────────────────────── */}

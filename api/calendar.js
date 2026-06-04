@@ -1,15 +1,35 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
+  if (!["GET", "POST"].includes(req.method)) return res.status(405).json({ error: "Método não permitido" });
 
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN } = process.env;
+  const isConfigured = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_REFRESH_TOKEN);
 
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN) {
-    return res.status(500).json({ error: "Variáveis de ambiente não configuradas" });
+  if (req.method === "GET") {
+    return res.status(200).json({ configured: isConfigured });
+  }
+
+  if (!isConfigured) {
+    return res.status(503).json({ error: "Integração com Google Calendar não configurada", code: "CALENDAR_NOT_CONFIGURED" });
+  }
+
+  let eventPayload = req.body;
+  if (Buffer.isBuffer(eventPayload)) eventPayload = eventPayload.toString("utf8");
+
+  if (typeof eventPayload === "string") {
+    try {
+      eventPayload = JSON.parse(eventPayload);
+    } catch {
+      return res.status(400).json({ error: "Corpo da requisição inválido" });
+    }
+  }
+
+  if (!eventPayload || typeof eventPayload !== "object" || Array.isArray(eventPayload)) {
+    return res.status(400).json({ error: "Evento inválido" });
   }
 
   try {
@@ -38,7 +58,7 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${tokenData.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(eventPayload),
     });
 
     const calData = await calRes.json();

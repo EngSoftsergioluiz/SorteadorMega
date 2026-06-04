@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Studio Kellen Cristina</title>
 
   <!-- Tailwind CSS CDN -->
@@ -36,6 +36,15 @@
       padding: 0;
       display: flex;
       flex-direction: column;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0, 12, 28, 0.32), rgba(0, 25, 47, 0.65));
+      pointer-events: none;
+      z-index: -1;
     }
 
     h1,
@@ -142,6 +151,7 @@
       transition: all 0.3s ease;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 0.5rem;
     }
 
@@ -240,8 +250,6 @@
       letter-spacing: 0.1em;
       text-shadow: 0 0 5px var(--dourado-2);
       user-select: none;
-      position: fixed;
-      bottom: 0;
       width: 100%;
       border-top: 1px solid rgba(228, 195, 107, 0.2);
     }
@@ -249,10 +257,9 @@
     /* Conteúdo principal */
     .main-content {
       flex: 1;
-      margin-top: 90px; /* Espaço para o header fixo */
-      margin-bottom: 60px; /* Espaço para o footer fixo */
-      padding: 20px;
-      overflow-y: auto;
+      width: min(100%, 1200px);
+      margin: 90px auto 0; /* Espaço para o header fixo */
+      padding: 24px 20px 48px;
     }
     
     /* Seções */
@@ -272,19 +279,67 @@
     }
 
     #initial-content {
-      display: flex;
-      justify-content: center;
+      min-height: calc(100dvh - 150px);
+      padding-block: 24px 12px;
+    }
+
+    .hero-shell {
+      width: min(100%, 1080px);
+      display: grid;
+      grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
       align-items: center;
-      min-height: calc(100vh - 150px); /* Ajustado para considerar header e footer */
+      gap: clamp(24px, 5vw, 56px);
+    }
+
+    .hero-copy {
+      background: rgba(0, 25, 47, 0.84);
+      border: 1px solid rgba(228, 195, 107, 0.24);
+      border-radius: 28px;
+      padding: clamp(24px, 4vw, 40px);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(8px);
+      text-align: left;
+    }
+
+    .hero-kicker {
+      display: inline-block;
+      margin-bottom: 14px;
+      color: var(--dourado-1);
+      font-size: 0.9rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+    }
+
+    .hero-title {
+      margin-bottom: 16px;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      line-height: 1.1;
+    }
+
+    .hero-description {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      line-height: 1.8;
+      color: var(--amarelo-claro);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 28px;
+    }
+
+    .hero-actions .btn {
+      min-width: 210px;
     }
     
     /* Logo central - APENAS NA PÁGINA INICIAL */
     .center-logo {
-      max-width: 90%;
+      width: min(100%, 420px);
       max-height: 70vh;
-      width: auto;
       height: auto;
       animation: float 6s ease-in-out infinite;
+      justify-self: center;
     }
 
     @keyframes float {
@@ -296,6 +351,12 @@
     /* Ativo */
     .active {
       display: block;
+    }
+
+    #initial-content.active {
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     
     /* Menu mobile */
@@ -348,8 +409,13 @@
     }
 
     @media (max-width: 768px) {
+      body {
+        background-attachment: scroll;
+      }
+
       .header-container {
-        padding: 5px 0;
+        width: calc(100% - 32px);
+        padding: 4px 0;
       }
       
       .logo-header {
@@ -397,6 +463,7 @@
       
       .main-content {
         margin-top: 80px;
+        padding: 20px 16px 36px;
       }
       
       .content-section {
@@ -404,7 +471,30 @@
       }
       
       #initial-content {
-        min-height: calc(100vh - 140px);
+        min-height: calc(100dvh - 120px);
+        align-items: flex-start;
+        padding-block: 12px 24px;
+      }
+
+      .hero-shell {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .hero-copy {
+        order: 2;
+        text-align: center;
+        padding: 24px 20px;
+        border-radius: 24px;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+      }
+
+      .hero-actions .btn {
+        width: 100%;
+        min-width: 0;
       }
     }
 
@@ -414,12 +504,30 @@
       }
       
       .center-logo {
-        max-width: 95%;
-        max-height: 60vh;
+        width: min(100%, 280px);
+        max-height: none;
       }
       
       #initial-content {
-        min-height: calc(100vh - 130px);
+        min-height: auto;
+      }
+
+      .hero-copy {
+        padding: 22px 18px;
+      }
+
+      .hero-title {
+        font-size: 1.85rem;
+      }
+
+      .hero-description {
+        font-size: 0.98rem;
+        line-height: 1.65;
+      }
+
+      footer {
+        font-size: 0.8rem;
+        padding: 0.9rem 16px calc(0.9rem + env(safe-area-inset-bottom));
       }
     }
   </style>
@@ -447,7 +555,22 @@
   <main class="main-content">
     <!-- Conteúdo Inicial (APENAS AQUI TEM LOGO) -->
     <div id="initial-content" class="content-section active">
-      <img src="img/Kellen-Cristina-LOGO.png" alt="Studio Kellen Cristina" class="center-logo" />
+      <div class="hero-shell">
+        <img src="img/Kellen-Cristina-LOGO.png" alt="Studio Kellen Cristina" class="center-logo" />
+        <div class="hero-copy">
+          <span class="hero-kicker">Studio Kellen Cristina</span>
+          <h1 class="hero-title">Beleza capilar com atendimento acolhedor e resultado profissional.</h1>
+          <p class="hero-description">
+            Conheça os tratamentos, veja alguns resultados e fale com o studio para agendar seu horário de forma rápida pelo celular.
+          </p>
+          <div class="hero-actions">
+            <a href="#servicos" class="btn btn-ligar nav-link" tabindex="0">Ver serviços</a>
+            <a href="https://wa.me/5541997869763" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp" aria-label="Agendar atendimento pelo WhatsApp">
+              Agendar agora
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Sobre -->
