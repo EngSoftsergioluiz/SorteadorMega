@@ -215,8 +215,23 @@ Deseja agendar? Digite *1* para começar! 💕`;
         body: JSON.stringify(event),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || data.error || `Erro ${r.status}`);
+      if (!r.ok) {
+        const err = new Error(data.error?.message || data.error || `Erro ${r.status}`);
+        err.code = data.code;
+        throw err;
+      }
       return data;
+    }
+
+    async function fetchCalendarStatus() {
+      try {
+        const r = await fetch("/api/calendar");
+        if (!r.ok) return "disconnected";
+        const data = await r.json();
+        return data.configured ? "connected" : "not_configured";
+      } catch {
+        return "disconnected";
+      }
     }
 
     // ── Claude AI ─────────────────────────────────────────────────────────────
@@ -287,7 +302,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
       const [clientData,    setClientData]    = useState({ name: "", phone: "", birthday: "" });
       const [selService,    setSelService]    = useState(null);
       const [selSlot,       setSelSlot]       = useState(null);
-      const [googleStatus,  setGoogleStatus]  = useState("connected"); // gerenciado pelo backend /api/calendar
+      const [googleStatus,  setGoogleStatus]  = useState("checking");
       const [schedule,      setSchedule]      = useState(loadSchedule);
       const [notifications, setNotifications] = useState([]);
       const [appointments,  setAppointments]  = useState([
@@ -302,10 +317,21 @@ Deseja agendar? Digite *1* para começar! 💕`;
         const bdays = appointments.filter(a => isBirthday(a.client.birthday));
         bdays.forEach(a => notify(`🎂 Aniversário de ${a.client.name} hoje!`, "bday"));
         triggerGreeting();
+        refreshCalendarStatus();
       }, []);
 
       function notify(text, type = "info") {
         setNotifications(p => [{ id: Date.now() + Math.random(), text, type }, ...p].slice(0, 25));
+      }
+
+      async function refreshCalendarStatus(showFeedback = false) {
+        const status = await fetchCalendarStatus();
+        setGoogleStatus(status);
+        if (!showFeedback) return status;
+        if (status === "connected") notify("✅ Google Calendar conectado.", "success");
+        else if (status === "not_configured") notify("⚠️ Configure as variáveis do Google Calendar no backend para criar eventos automaticamente.", "error");
+        else notify("⚠️ Backend do Google Calendar indisponível no momento.", "error");
+        return status;
       }
 
       function triggerGreeting() {
@@ -447,12 +473,21 @@ Deseja agendar? Digite *1* para começar! 💕`;
       async function finalize() {
         const appt = { id: Date.now(), client: { ...clientData }, service: selService, slot: selSlot, status: "confirmed", calendarEventId: null };
         let calMsg = "";
-        try {
-          const e = await createCalendarEvent(appt);
-          appt.calendarEventId = e.id;
-          calMsg = "\n📅 Evento criado no *Google Calendar*!";
-        } catch (err) {
-          calMsg = `\n⚠️ Não foi possível criar no Calendar: ${err.message}`;
+        if (googleStatus === "connected") {
+          try {
+            const e = await createCalendarEvent(appt);
+            appt.calendarEventId = e.id;
+            calMsg = "\n📅 Evento criado no *Google Calendar*!";
+          } catch (err) {
+            if (err.code === "CALENDAR_NOT_CONFIGURED") setGoogleStatus("not_configured");
+            calMsg = err.code === "CALENDAR_NOT_CONFIGURED"
+              ? "\n⚠️ Agenda automática indisponível no momento."
+              : `\n⚠️ Não foi possível criar no Calendar: ${err.message}`;
+          }
+        } else if (googleStatus === "not_configured") {
+          calMsg = "\n⚠️ Agenda automática indisponível: configure o Google Calendar no backend.";
+        } else if (googleStatus === "disconnected") {
+          calMsg = "\n⚠️ Agenda automática indisponível no momento.";
         }
         setAppointments(p => [...p, appt]);
         notify(`📅 Novo agendamento: ${clientData.name} — ${selService.name} em ${fmtDate(selSlot)}`, "booking");
@@ -463,7 +498,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
         setIsTyping(false);
       }
 
-      function connectGoogle() { /* Conexão gerenciada pelo backend */ }
+      function connectGoogle() { refreshCalendarStatus(true); }
 
       function confirmAppt(id) { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "confirmed" } : a)); notify("✅ Agendamento confirmado.", "success"); }
       function cancelAppt(id)  { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a)); notify("❌ Agendamento cancelado.", "error"); }
@@ -536,7 +571,10 @@ Deseja agendar? Digite *1* para começar! 💕`;
               </div>
             </div>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <span className="lato" style={{ fontSize:11, color:"#4ade80" }}>✅ Calendar</span>
+              {googleStatus === "connected" && <span className="lato" style={{ fontSize:11, color:"#4ade80" }}>✅ Calendar</span>}
+              {googleStatus === "checking" && <span className="lato" style={{ fontSize:11, color:BRAND.gold }}>⏳ Verificando</span>}
+              {googleStatus === "not_configured" && <span className="lato" style={{ fontSize:11, color:"#fbbf24" }}>⚠️ Calendar</span>}
+              {googleStatus === "disconnected" && <span className="lato" style={{ fontSize:11, color:"#f87171" }}>⚠️ Calendar</span>}
               <button className="btn-outline" onClick={() => setView(v => v==="chat"?"dashboard":"chat")} style={{ fontSize:11 }}>
                 {view==="chat" ? "📊 Painel" : "💬 Chat"}
               </button>
@@ -770,7 +808,25 @@ Deseja agendar? Digite *1* para começar! 💕`;
                       <span style={{ fontSize:20 }}>📅</span>
                       <div className="lato" style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.gold }}>Google Calendar</div>
                     </div>
-                    <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
+                    {googleStatus === "connected" && (
+                      <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
+                    )}
+                    {googleStatus === "checking" && (
+                      <div className="lato" style={{ fontSize:13, color:BRAND.gold }}>⏳ Verificando integração automática com o Google Calendar...</div>
+                    )}
+                    {googleStatus === "not_configured" && (
+                      <>
+                        <div className="lato" style={{ fontSize:13, color:"#fbbf24", marginBottom:12 }}>⚠️ Google Calendar não configurado no backend.</div>
+                        <div className="lato" style={{ fontSize:12, color:BRAND.creamDim, marginBottom:12 }}>Cadastre as variáveis GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REFRESH_TOKEN na hospedagem para voltar a criar eventos automaticamente.</div>
+                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Verificar novamente</button>
+                      </>
+                    )}
+                    {googleStatus === "disconnected" && (
+                      <>
+                        <div className="lato" style={{ fontSize:13, color:"#f87171", marginBottom:12 }}>⚠️ Não foi possível alcançar o backend do Google Calendar.</div>
+                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Tentar novamente</button>
+                      </>
+                    )}
                   </div>
 
                   {/* ── Settings card ───────────────────────────────────────── */}
