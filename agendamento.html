@@ -143,8 +143,11 @@ Pacotes não incluem babyliss ou penteados elaborados.
 
 Deseja agendar? Digite *1* para começar! 💕`;
 
-    const BUSINESS_HOURS = { start: 9, end: 19 };
-    const WORKING_DAYS   = [1, 2, 3, 4, 5, 6];
+    const DEFAULT_SCHEDULE = { start: 9, end: 19, workingDays: [1,2,3,4,5,6], blockedDates: [] };
+    function loadSchedule() {
+      try { return { ...DEFAULT_SCHEDULE, ...JSON.parse(localStorage.getItem("kc_schedule") || "{}") }; } catch { return DEFAULT_SCHEDULE; }
+    }
+    function saveSchedule(s) { localStorage.setItem("kc_schedule", JSON.stringify(s)); }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const fmtDate = d => d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
@@ -158,25 +161,32 @@ Deseja agendar? Digite *1* para começar! 💕`;
         if (a.status === "cancelled") return false;
         const bookedStart = new Date(a.slot).getTime();
         const bookedEnd   = bookedStart + a.service.duration * 60000;
-        // Conflict: intervals overlap
         return candidateStart < bookedEnd && candidateEnd > bookedStart;
       });
     }
 
-    function getNextSlots(service, appointments, count = 8) {
+    function isDateBlocked(date, schedule) {
+      const iso = date.toISOString().slice(0, 10); // "YYYY-MM-DD"
+      return (schedule.blockedDates || []).includes(iso);
+    }
+
+    function getNextSlots(service, appointments, schedule, count = 8) {
       const slots = [], now = new Date(), c = new Date(now);
       c.setMinutes(Math.ceil(c.getMinutes() / 30) * 30, 0, 0);
-      if (c.getHours() < BUSINESS_HOURS.start) c.setHours(BUSINESS_HOURS.start, 0, 0, 0);
-      while (slots.length < count) {
-        if (WORKING_DAYS.includes(c.getDay()) &&
-            c.getHours() >= BUSINESS_HOURS.start &&
-            c.getHours() + service.duration / 60 <= BUSINESS_HOURS.end &&
+      if (c.getHours() < schedule.start) c.setHours(schedule.start, 0, 0, 0);
+      let safety = 0;
+      while (slots.length < count && safety < 2000) {
+        safety++;
+        if (schedule.workingDays.includes(c.getDay()) &&
+            c.getHours() >= schedule.start &&
+            c.getHours() + service.duration / 60 <= schedule.end &&
+            !isDateBlocked(c, schedule) &&
             !isSlotTaken(c, service.duration, appointments))
           slots.push(new Date(c));
         c.setMinutes(c.getMinutes() + 30);
-        if (c.getHours() >= BUSINESS_HOURS.end) {
+        if (c.getHours() >= schedule.end) {
           c.setDate(c.getDate() + 1);
-          c.setHours(BUSINESS_HOURS.start, 0, 0, 0);
+          c.setHours(schedule.start, 0, 0, 0);
         }
       }
       return slots;
@@ -278,6 +288,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
       const [selService,    setSelService]    = useState(null);
       const [selSlot,       setSelSlot]       = useState(null);
       const [googleStatus,  setGoogleStatus]  = useState("connected"); // gerenciado pelo backend /api/calendar
+      const [schedule,      setSchedule]      = useState(loadSchedule);
       const [notifications, setNotifications] = useState([]);
       const [appointments,  setAppointments]  = useState([
         { id: 1, client: { name: "Ana Lima",    phone: "(41) 99111-2222", birthday: "15/07" }, service: SERVICES[0], slot: new Date(Date.now() + 86400000),  status: "confirmed", calendarEventId: "evt_001" },
@@ -416,7 +427,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
 
       function pickService(s) {
         setSelService(s);
-        const slots = getNextSlots(s, appointments);
+        const slots = getNextSlots(s, appointments, schedule);
         addUser(`${s.emoji} ${s.name}`);
         setTimeout(() => {
           addBot(`Ótima escolha! *${s.name}* tem duração de ${s.duration} min e custa *${s.price}*. 💛\n\nEscolha um horário disponível:`, slots, "slots");
@@ -457,6 +468,27 @@ Deseja agendar? Digite *1* para começar! 💕`;
       function confirmAppt(id) { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "confirmed" } : a)); notify("✅ Agendamento confirmado.", "success"); }
       function cancelAppt(id)  { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a)); notify("❌ Agendamento cancelado.", "error"); }
       function sendBday(a)     { notify(`🎂 Mensagem de aniversário enviada para ${a.client.name}! "Feliz aniversário! O Kellen Cristina Beauty Studio tem um mimo especial para você! 🎁💛"`, "bday"); }
+
+      function updateSchedule(patch) {
+        setSchedule(prev => {
+          const next = { ...prev, ...patch };
+          saveSchedule(next);
+          return next;
+        });
+      }
+      function toggleWorkingDay(day) {
+        const days = schedule.workingDays.includes(day)
+          ? schedule.workingDays.filter(d => d !== day)
+          : [...schedule.workingDays, day].sort();
+        updateSchedule({ workingDays: days });
+      }
+      function addBlockedDate(dateStr) {
+        if (!dateStr || schedule.blockedDates.includes(dateStr)) return;
+        updateSchedule({ blockedDates: [...schedule.blockedDates, dateStr].sort() });
+      }
+      function removeBlockedDate(dateStr) {
+        updateSchedule({ blockedDates: schedule.blockedDates.filter(d => d !== dateStr) });
+      }
 
       const todayAppts   = appointments.filter(a => new Date(a.slot).toDateString() === new Date().toDateString() && a.status !== "cancelled");
       const pendingAppts = appointments.filter(a => a.status === "pending");
@@ -733,13 +765,113 @@ Deseja agendar? Digite *1* para começar! 💕`;
                   </div>
 
                   {/* Google Calendar card */}
-                  <div style={{ background:"#060f1a", border:`1px solid ${BRAND.navyBorder}`, borderRadius:12, padding:20 }}>
+                  <div style={{ background:"#060f1a", border:`1px solid ${BRAND.navyBorder}`, borderRadius:12, padding:20, marginBottom:20 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
                       <span style={{ fontSize:20 }}>📅</span>
                       <div className="lato" style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.gold }}>Google Calendar</div>
                     </div>
                     <div className="lato" style={{ fontSize:13, color:"#4ade80" }}>✅ Conectado — novos agendamentos criam eventos automaticamente.</div>
                   </div>
+
+                  {/* ── Settings card ───────────────────────────────────────── */}
+                  {(() => {
+                    const DAY_LABELS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+                    const [newDate, setNewDate] = React.useState("");
+                    return (
+                      <div style={{ background:"#060f1a", border:`1px solid ${BRAND.navyBorder}`, borderRadius:12, padding:20 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+                          <span style={{ fontSize:20 }}>⚙️</span>
+                          <div className="lato" style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:BRAND.gold }}>Horário de Atendimento</div>
+                        </div>
+
+                        {/* Hours */}
+                        <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, marginBottom:8, letterSpacing:"1px", textTransform:"uppercase" }}>Horário</div>
+                        <div style={{ display:"flex", gap:16, alignItems:"center", marginBottom:20, flexWrap:"wrap" }}>
+                          <label style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <span className="lato" style={{ fontSize:12, color:BRAND.creamMuted }}>Abertura</span>
+                            <select
+                              className="lato"
+                              value={schedule.start}
+                              onChange={e => updateSchedule({ start: +e.target.value })}
+                              style={{ background:BRAND.navyLight, border:`1px solid ${BRAND.navyBorder}`, borderRadius:6, color:BRAND.cream, padding:"4px 8px", fontSize:12 }}
+                            >
+                              {Array.from({length:16},(_,i)=>i+6).map(h=>(
+                                <option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <span className="lato" style={{ fontSize:12, color:BRAND.creamMuted }}>Fechamento</span>
+                            <select
+                              className="lato"
+                              value={schedule.end}
+                              onChange={e => updateSchedule({ end: +e.target.value })}
+                              style={{ background:BRAND.navyLight, border:`1px solid ${BRAND.navyBorder}`, borderRadius:6, color:BRAND.cream, padding:"4px 8px", fontSize:12 }}
+                            >
+                              {Array.from({length:16},(_,i)=>i+6).map(h=>(
+                                <option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+
+                        {/* Working days */}
+                        <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, marginBottom:8, letterSpacing:"1px", textTransform:"uppercase" }}>Dias de Atendimento</div>
+                        <div style={{ display:"flex", gap:7, marginBottom:20, flexWrap:"wrap" }}>
+                          {DAY_LABELS.map((label, i) => {
+                            const active = schedule.workingDays.includes(i);
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => toggleWorkingDay(i)}
+                                className="lato"
+                                style={{
+                                  padding:"6px 12px", borderRadius:8, fontSize:12, cursor:"pointer",
+                                  border:`1px solid ${active ? BRAND.gold : BRAND.navyBorder}`,
+                                  background: active ? `${BRAND.gold}22` : "transparent",
+                                  color: active ? BRAND.gold : BRAND.creamDim,
+                                  fontWeight: active ? 700 : 400,
+                                }}
+                              >{label}</button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Blocked dates */}
+                        <div className="lato" style={{ fontSize:11, color:BRAND.creamDim, marginBottom:8, letterSpacing:"1px", textTransform:"uppercase" }}>Datas Bloqueadas (Folgas / Feriados)</div>
+                        <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10, flexWrap:"wrap" }}>
+                          <input
+                            type="date"
+                            value={newDate}
+                            onChange={e => setNewDate(e.target.value)}
+                            className="lato"
+                            style={{ background:BRAND.navyLight, border:`1px solid ${BRAND.navyBorder}`, borderRadius:6, color:BRAND.cream, padding:"5px 10px", fontSize:12 }}
+                          />
+                          <button
+                            className="btn-outline"
+                            style={{ fontSize:12 }}
+                            onClick={() => { addBlockedDate(newDate); setNewDate(""); }}
+                          >+ Bloquear data</button>
+                        </div>
+                        {schedule.blockedDates.length === 0 && (
+                          <div className="lato" style={{ fontSize:12, color:BRAND.creamDim, fontStyle:"italic" }}>Nenhuma data bloqueada.</div>
+                        )}
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+                          {schedule.blockedDates.map(d => (
+                            <div key={d} style={{ display:"flex", alignItems:"center", gap:6, background:`${BRAND.navyCard}`, border:`1px solid #f8717144`, borderRadius:7, padding:"4px 10px" }}>
+                              <span className="lato" style={{ fontSize:12, color:"#f87171" }}>
+                                {new Date(d + "T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short",year:"numeric"})}
+                              </span>
+                              <button
+                                onClick={() => removeBlockedDate(d)}
+                                style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", fontSize:14, lineHeight:1, padding:"0 2px" }}
+                              >×</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
