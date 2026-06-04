@@ -6,6 +6,21 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido" });
 
+  let eventPayload = req.body;
+  if (Buffer.isBuffer(eventPayload)) eventPayload = eventPayload.toString("utf8");
+
+  if (typeof eventPayload === "string") {
+    try {
+      eventPayload = JSON.parse(eventPayload);
+    } catch {
+      return res.status(400).json({ error: "Corpo da requisição inválido" });
+    }
+  }
+
+  if (!eventPayload || typeof eventPayload !== "object" || Array.isArray(eventPayload)) {
+    return res.status(400).json({ error: "Evento inválido" });
+  }
+
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN } = process.env;
 
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN) {
@@ -38,7 +53,7 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${tokenData.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(eventPayload),
     });
 
     const calData = await calRes.json();
