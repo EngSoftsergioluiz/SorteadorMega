@@ -48,8 +48,12 @@ export default async function handler(req, res) {
     const tokenData = await tokenRes.json();
 
 if (!tokenData.access_token) {
+  const googleError = tokenData.error_description || tokenData.error || "Token inválido";
+  console.error("[calendar] Token exchange failed:", JSON.stringify(tokenData));
   return res.status(401).json({
-    googleResponse: tokenData
+    error: `Falha na autenticação Google: ${googleError}`,
+    googleError: tokenData.error,
+    googleErrorDescription: tokenData.error_description,
   });
 }
 
