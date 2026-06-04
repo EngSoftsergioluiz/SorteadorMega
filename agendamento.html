@@ -241,6 +241,21 @@ Deseja agendar? Digite *1* para começar! 💕`;
       return data;
     }
 
+    async function deleteCalendarEvent(eventId, token = null) {
+      if (!eventId) return;
+      try {
+        await fetch(token ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}` : "/api/calendar", {
+          method: "DELETE",
+          headers: token
+            ? { Authorization: "Bearer " + token }
+            : { "Content-Type": "application/json" },
+          ...(token ? {} : { body: JSON.stringify({ eventId }) }),
+        });
+      } catch {
+        console.warn("Não foi possível excluir evento do Calendar:", eventId);
+      }
+    }
+
     async function fetchCalendarStatus() {
       try {
         const r = await fetch("/api/calendar");
@@ -469,6 +484,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
             if (found) {
               setAppointments(p => p.map(a => a.id === found.id ? { ...a, status: "cancelled" } : a));
               notify(`❌ Agendamento de ${found.client.name} cancelado.`, "error");
+              if (found.calendarEventId) deleteCalendarEvent(found.calendarEventId, accessToken);
               addBot(`Agendamento de *${found.service.name}* em ${fmtDT(found.slot)} foi *cancelado* com sucesso.\n\nSempre que quiser reagendar, estarei aqui! 💕`);
             } else {
               addBot("Não encontrei agendamento ativo com esse número. Posso te ajudar com mais alguma coisa?");
@@ -563,7 +579,12 @@ Deseja agendar? Digite *1* para começar! 💕`;
       }
 
       function confirmAppt(id) { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "confirmed" } : a)); notify("✅ Agendamento confirmado.", "success"); }
-      function cancelAppt(id)  { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a)); notify("❌ Agendamento cancelado.", "error"); }
+      function cancelAppt(id) {
+        const appt = appointments.find(a => a.id === id);
+        setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a));
+        notify("❌ Agendamento cancelado.", "error");
+        if (appt?.calendarEventId) deleteCalendarEvent(appt.calendarEventId, accessToken);
+      }
       function sendBday(a)     { notify(`🎂 Mensagem de aniversário enviada para ${a.client.name}! "Feliz aniversário! O Kellen Cristina Beauty Studio tem um mimo especial para você! 🎁💛"`, "bday"); }
 
       function updateSchedule(patch) {
