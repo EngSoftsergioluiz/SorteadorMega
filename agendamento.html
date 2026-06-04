@@ -205,7 +205,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
     const ASSISTANT_FALLBACK_MESSAGE = "Posso te ajudar por aqui mesmo 💛 Digite *1* para agendar, *2* para conhecer o Clube da Escova, *3* para consultar ou *4* para cancelar.";
 
     // ── Google Calendar ───────────────────────────────────────────────────────
-    async function createCalendarEvent({ client, service, slot }) {
+    async function createCalendarEvent({ client, service, slot }, token = null) {
       const end = new Date(slot.getTime() + service.duration * 60000);
       const event = {
         summary: `${service.emoji} ${service.name} — ${client.name}`,
@@ -215,14 +215,21 @@ Deseja agendar? Digite *1* para começar! 💕`;
         colorId: "2",
         reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 1440 }, { method: "popup", minutes: 60 }] },
       };
-      const r = await fetch("/api/calendar", {
+      const r = await fetch(token ? "https://www.googleapis.com/calendar/v3/calendars/primary/events" : "/api/calendar", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: token
+          ? { Authorization: "Bearer " + token, "Content-Type": "application/json" }
+          : { "Content-Type": "application/json" },
         body: JSON.stringify(event),
       });
-      const data = await r.json();
+      let data = {};
+      try {
+        data = await r.json();
+      } catch (parseErr) {
+        console.warn(`Resposta inválida do Google Calendar/API (status ${r.status}, Content-Type: ${r.headers.get("Content-Type") || "não especificado"})`, parseErr);
+      }
       if (!r.ok) {
-        const err = new Error(data.error?.message || data.error || `Erro ${r.status}`);
+        const err = new Error(data.error?.message || data.error_description || data.error || `Erro ${r.status}`);
         err.code = data.code;
         throw err;
       }
@@ -318,6 +325,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
       const [selService,    setSelService]    = useState(null);
       const [selSlot,       setSelSlot]       = useState(null);
       const [googleStatus,  setGoogleStatus]  = useState("checking");
+      const [accessToken,   setAccessToken]   = useState(null);
       const [schedule,      setSchedule]      = useState(loadSchedule);
       const [notifications, setNotifications] = useState([]);
       const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
@@ -498,7 +506,7 @@ Deseja agendar? Digite *1* para começar! 💕`;
         let calMsg = "";
         if (googleStatus === "connected") {
           try {
-            const e = await createCalendarEvent(appt);
+            const e = await createCalendarEvent(appt, accessToken);
             appt.calendarEventId = e.id;
             calMsg = "\n📅 Evento criado no *Google Calendar*!";
           } catch (err) {
@@ -523,7 +531,27 @@ Deseja agendar? Digite *1* para começar! 💕`;
         setIsTyping(false);
       }
 
-      function connectGoogle() { refreshCalendarStatus(true); }
+      function connectGoogle() {
+        if (!window.google?.accounts?.oauth2) {
+          notify("⚠️ O serviço de autenticação do Google não está disponível. Tente recarregar a página.", "error");
+          return;
+        }
+        window.google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: GOOGLE_SCOPES,
+          callback: (response) => {
+            if (response?.access_token) {
+              setAccessToken(response.access_token);
+              setGoogleStatus("connected");
+              notify("✅ Google Calendar conectado.", "success");
+            } else if (response?.error === "access_denied") {
+              notify("ℹ️ Conexão com Google cancelada por você.", "info");
+            } else {
+              notify(`⚠️ Não foi possível concluir a conexão: ${response?.error || "erro desconhecido"}. Tente novamente.`, "error");
+            }
+          },
+        }).requestAccessToken({ prompt: "consent" });
+      }
 
       function confirmAppt(id) { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "confirmed" } : a)); notify("✅ Agendamento confirmado.", "success"); }
       function cancelAppt(id)  { setAppointments(p => p.map(a => a.id === id ? { ...a, status: "cancelled" } : a)); notify("❌ Agendamento cancelado.", "error"); }
@@ -842,14 +870,14 @@ Deseja agendar? Digite *1* para começar! 💕`;
                     {googleStatus === "not_configured" && (
                       <>
                         <div className="lato" style={{ fontSize:13, color:"#fbbf24", marginBottom:12 }}>ℹ️ A integração automática com o Google Calendar está temporariamente indisponível.</div>
-                        <div className="lato" style={{ fontSize:12, color:BRAND.creamDim, marginBottom:12 }}>Os agendamentos continuam funcionando normalmente nesta página, mesmo sem a criação automática do evento.</div>
-                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Verificar novamente</button>
+                        <div className="lato" style={{ fontSize:12, color:BRAND.creamDim, marginBottom:12 }}>Você pode conectar sua conta Google para criar o evento no seu calendário mesmo sem a integração automática do servidor.</div>
+                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Conectar meu Google</button>
                       </>
                     )}
                     {googleStatus === "manual" && (
                       <>
-                        <div className="lato" style={{ fontSize:13, color:BRAND.creamMuted, marginBottom:12 }}>ℹ️ Este ambiente está em modo manual: os agendamentos funcionam normalmente, mas a criação automática no Google Calendar está desativada.</div>
-                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Tentar novamente</button>
+                        <div className="lato" style={{ fontSize:13, color:BRAND.creamMuted, marginBottom:12 }}>ℹ️ Este ambiente está em modo manual. Para criar no Google Calendar, conecte sua conta abaixo.</div>
+                        <button className="btn-outline" onClick={connectGoogle} style={{ fontSize:12 }}>Conectar meu Google</button>
                       </>
                     )}
                   </div>
