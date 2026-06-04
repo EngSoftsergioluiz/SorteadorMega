@@ -3,11 +3,15 @@
    Caches the app shell for offline use.
 =================================================== */
 
-const CACHE_NAME = 'kc-estoque-v1';
+const CACHE_NAME = 'kc-estoque-v2.3.0';
 
 const APP_SHELL = [
   '/estoque.html',
-  '/manifest.json'
+  '/agendamento.html',
+  '/index.html',
+  '/manifest.json',
+  '/style.css',
+  '/app.js'
 ];
 
 // Install: cache app shell

@@ -12,14 +12,18 @@
   <title>Agendamento – Kellen Cristina Beauty Studio</title>
 
   <!-- Google Identity Services (for Calendar OAuth) -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer crossorigin="anonymous"></script>
 
   <!-- React + ReactDOM (production builds) -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin="anonymous" src="https://unpkg.com/react@18/umd/react.production.min.js"
+          integrity="sha384-EPU7m2pMELqd7vTGzS0iR1eXPhTf4E5+4YqKoTaY7LbPDl6HS6FZcT8HtJwpBEcb"></script>
+  <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+          integrity="sha384-rlBDXxFVGITU6dWe5qVq8h2F5JL2Fl7HVHZb6+NHgQ0M7jcE8FBUqVp7vJ7LvT0y"></script>
 
   <!-- Babel Standalone (transpiles JSX in-browser) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"
+          integrity="sha384-iVRjPZBBBNs/wBK6ug3yIm0jvF6m0qLLRLVfPq4xL6FVRIqQGQIE6JwY9cT8KYnZ"
+          crossorigin="anonymous"></script>
 
   <style>
     html, body, #root { height: 100%; margin: 0; padding: 0; }

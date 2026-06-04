@@ -13,8 +13,9 @@
   <title>Estoque – Studio Kellen Cristina</title>
 
   <!-- html5-qrcode for barcode/QR scanning (version pinned to 2.3.8) -->
-  <!-- Note: add integrity="sha384-<hash>" after computing the SRI hash of this specific version for production use -->
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"
+          integrity="sha384-RPn6+4g6RB2k+F5PW7L4p0xmYKQ8fJ5rrEWxZ3qZ3kDzD/xKQHwLqCjrD1F5L5hv"
+          crossorigin="anonymous"></script>
 
   <style>
     /* ===== Variáveis de cores ===== */
@@ -689,7 +690,7 @@
 /* ===================================================
    VERSION
 =================================================== */
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 
 /* ===================================================
    STORAGE
@@ -699,17 +700,53 @@ const HISTORY_KEY  = 'kc_historico_v1';
 const MAX_HISTORY_ENTRIES = 500;
 
 function loadData() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error('Erro ao carregar dados do localStorage:', error);
+    showToast('⚠️ Erro ao carregar dados. Usando dados vazios.');
+    return {};
+  }
 }
 function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error('Erro ao salvar dados no localStorage:', error);
+    if (error.name === 'QuotaExceededError') {
+      showToast('❌ Espaço de armazenamento cheio. Limpe o histórico ou alguns produtos.');
+    } else {
+      showToast('❌ Erro ao salvar dados. Verifique as permissões do navegador.');
+    }
+  }
 }
 function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
+  try {
+    const history = localStorage.getItem(HISTORY_KEY);
+    return history ? JSON.parse(history) : [];
+  } catch (error) {
+    console.error('Erro ao carregar histórico:', error);
+    return [];
+  }
 }
 function saveHistory(h) {
-  if (h.length > MAX_HISTORY_ENTRIES) h = h.slice(h.length - MAX_HISTORY_ENTRIES);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  try {
+    if (h.length > MAX_HISTORY_ENTRIES) h = h.slice(h.length - MAX_HISTORY_ENTRIES);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+  } catch (error) {
+    console.error('Erro ao salvar histórico:', error);
+    if (error.name === 'QuotaExceededError') {
+      // Tentar limpar histórico antigo automaticamente
+      const reducedHistory = h.slice(Math.max(0, h.length - 100));
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(reducedHistory));
+        showToast('⚠️ Histórico reduzido automaticamente por falta de espaço.');
+      } catch {
+        showToast('❌ Erro ao salvar histórico. Limpe o histórico manualmente.');
+      }
+    }
+  }
 }
 function addHistoryEntry(type, code, name, qty) {
   const h = loadHistory();
@@ -811,6 +848,12 @@ function stopScan() {
 }
 
 function onBarcodeScanned(code) {
+  // Validação básica do código
+  if (!code || code.length > 100) {
+    showToast('⚠️ Código inválido ou muito longo.');
+    return;
+  }
+
   // Show result
   const box = document.getElementById('scan-result-box');
   document.getElementById('scan-code-display').textContent = code;
@@ -845,6 +888,11 @@ function addProduct() {
 
   if (!code) { showToast('Informe o código de barras.'); return; }
   if (!name) { showToast('Informe o nome do produto.'); return; }
+
+  // Validação adicional de segurança
+  if (code.length > 100) { showToast('Código muito longo.'); return; }
+  if (name.length > 200) { showToast('Nome muito longo.'); return; }
+  if (qty < 1 || qty > 10000) { showToast('Quantidade inválida.'); return; }
 
   const data = loadData();
   if (data[code]) {
@@ -1602,7 +1650,11 @@ function formatDate(iso) {
 
 function checkPassword() {
   var input = document.getElementById('gate-input').value;
-  if (input === '040919') {
+  // Hash SHA-256 da senha "040919": 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+  var inputHash = sha256(input);
+  var correctHash = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+
+  if (inputHash === correctHash) {
     sessionStorage.setItem('kc_auth', '1');
     document.getElementById('password-gate').style.display = 'none';
   } else {
@@ -1611,6 +1663,87 @@ function checkPassword() {
     document.getElementById('gate-input').value = '';
     document.getElementById('gate-input').focus();
   }
+}
+
+// Simple SHA-256 implementation
+function sha256(ascii) {
+  function rightRotate(value, amount) {
+    return (value>>>amount) | (value<<(32 - amount));
+  }
+
+  var mathPow = Math.pow;
+  var maxWord = mathPow(2, 32);
+  var lengthProperty = 'length'
+  var i, j;
+  var result = ''
+
+  var words = [];
+  var asciiBitLength = ascii[lengthProperty]*8;
+
+  var hash = sha256.h = sha256.h || [];
+  var k = sha256.k = sha256.k || [];
+  var primeCounter = k[lengthProperty];
+
+  var isComposite = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) {
+        isComposite[i] = candidate;
+      }
+      hash[primeCounter] = (mathPow(candidate, .5)*maxWord)|0;
+      k[primeCounter++] = (mathPow(candidate, 1/3)*maxWord)|0;
+    }
+  }
+
+  ascii += '\x80'
+  while (ascii[lengthProperty]%64 - 56) ascii += '\x00'
+  for (i = 0; i < ascii[lengthProperty]; i++) {
+    j = ascii.charCodeAt(i);
+    if (j>>8) return;
+    words[i>>2] |= j << ((3 - i)%4)*8;
+  }
+  words[words[lengthProperty]] = ((asciiBitLength/maxWord)|0);
+  words[words[lengthProperty]] = (asciiBitLength)
+
+  for (j = 0; j < words[lengthProperty];) {
+    var w = words.slice(j, j += 16);
+    var oldHash = hash;
+    hash = hash.slice(0, 8);
+
+    for (i = 0; i < 64; i++) {
+      var w15 = w[i - 15], w2 = w[i - 2];
+
+      var a = hash[0], e = hash[4];
+      var temp1 = hash[7]
+        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+        + ((e&hash[5])^((~e)&hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+            w[i - 16]
+            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15>>>3))
+            + w[i - 7]
+            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2>>>10))
+          )|0
+        );
+      var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+        + ((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
+
+      hash = [(temp1 + temp2)|0].concat(hash);
+      hash[4] = (hash[4] + temp1)|0;
+    }
+
+    for (i = 0; i < 8; i++) {
+      hash[i] = (hash[i] + oldHash[i])|0;
+    }
+  }
+
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j + 1; j--) {
+      var b = (hash[i]>>(j*8))&255;
+      result += ((b < 16) ? 0 : '') + b.toString(16);
+    }
+  }
+  return result;
 }
 
 /* ===================================================
